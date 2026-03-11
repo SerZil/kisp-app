@@ -3423,7 +3423,7 @@ function PrintPreview({ emp, dolarMap, ranks, chartData, year, month, rangeFrom,
 }
 
 // ── EMPLOYEE PROFILE MODAL ────────────────────────────────────────────────────
-function EmployeeProfile({ emp, dolarMap, ranks, onClose, onSaveHistory, onSaveNotes, onPrint }) {
+function EmployeeProfile({ emp, dolarMap, ipcMap, ranks, onClose, onSaveHistory, onSaveNotes, onPrint }) {
   const [addingNote, setAddingNote] = useState(false);
   const [newNote, setNewNote] = useState({ text: "", reminder: "" });
 
@@ -3670,10 +3670,35 @@ function EmployeeProfile({ emp, dolarMap, ranks, onClose, onSaveHistory, onSaveN
                   if (totalFirst <= 0) return null;
                   const pct = ((totalLast - totalFirst) / totalFirst) * 100;
                   const color = pct >= 0 ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700";
+                  // IPC acumulado del rango
+                  let ipcAcum = null;
+                  if (ipcMap && Object.keys(ipcMap).length > 0) {
+                    let factor = 1;
+                    let cur = new Date(fromKey + "-01");
+                    const end = new Date(toKey + "-01");
+                    while (cur <= end) {
+                      const k = mkey(cur.getFullYear(), cur.getMonth());
+                      if (ipcMap[k] != null) factor *= (1 + ipcMap[k] / 100);
+                      cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1);
+                    }
+                    ipcAcum = (factor - 1) * 100;
+                  }
                   return (
-                    <span className={"px-2.5 py-1 rounded-full text-xs font-bold " + color}>
-                      {pct >= 0 ? "+" : ""}{pct.toFixed(1)}% en el periodo
-                    </span>
+                    <div className="flex flex-wrap gap-2 items-center">
+                      <span className={"px-2.5 py-1 rounded-full text-xs font-bold " + color}>
+                        Salario {pct >= 0 ? "+" : ""}{pct.toFixed(1)}%
+                      </span>
+                      {ipcAcum != null && (
+                        <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-orange-100 text-orange-700">
+                          IPC +{ipcAcum.toFixed(1)}%
+                        </span>
+                      )}
+                      {ipcAcum != null && (
+                        <span className={"px-2.5 py-1 rounded-full text-xs font-bold " + (pct - ipcAcum >= 0 ? "bg-blue-100 text-blue-700" : "bg-red-100 text-red-700")}>
+                          Real {pct - ipcAcum >= 0 ? "+" : ""}{(pct - ipcAcum).toFixed(1)}%
+                        </span>
+                      )}
+                    </div>
                   );
                 })()}
               </div>
@@ -3762,6 +3787,7 @@ export default function App() {
   const [loadError, setLoadError] = useState(false);
   const [employees, setEmployees] = useState([]);
   const [dolarMap, setDolarMap]   = useState(DOLAR_BLUE);
+  const [ipcMap, setIpcMap]       = useState({});
   const [cargaSocial, setCargaSocial] = useState(50);
   const [cargaInput, setCargaInput]   = useState("50");
   const [teams, setTeams]         = useState(TEAMS_INIT);
@@ -3873,6 +3899,26 @@ export default function App() {
 
   // ── STORAGE: load on mount ──
   useEffect(() => {
+    async function fetchIPC() {
+      try {
+        const res = await fetch("https://apis.datos.gob.ar/series/api/series/?ids=148.3_INIVELNAL_DICI_M_26&limit=48&sort=desc");
+        if (res.ok) {
+          const data = await res.json();
+          const series = (data.data || []).slice().reverse(); // oldest first
+          const map = {};
+          for (let i = 1; i < series.length; i++) {
+            const [dateStr, val] = series[i];
+            const [, prevVal] = series[i - 1];
+            const k = dateStr.slice(0, 7); // "YYYY-MM"
+            map[k] = ((val - prevVal) / prevVal) * 100;
+          }
+          setIpcMap(map);
+        }
+      } catch (e) {
+        console.log("No se pudo obtener IPC:", e);
+      }
+    }
+
     async function fetchDolarBlue() {
       try {
         const res = await fetch("https://dolarapi.com/v1/dolares/blue");
@@ -3899,6 +3945,7 @@ export default function App() {
             if (data.dolarMap) setDolarMap(data.dolarMap);
             setStorageReady(true);
             fetchDolarBlue();
+            fetchIPC();
             return;
           }
         }
@@ -4275,15 +4322,25 @@ export default function App() {
               ))}
             </div>
           </div>
-          <div className="flex flex-col items-end shrink-0">
-            <span className="text-gray-400 text-xs font-medium mb-1">Dolar Blue</span>
-            {editDolar
-              ? <input type="number" autoFocus className="w-28 border-2 border-blue-400 rounded-lg px-2 py-1 text-sm font-bold text-center focus:outline-none"
-                  value={dolar} onChange={e => setDolarMap(p => ({ ...p, [key]: Number(e.target.value) }))} onBlur={() => setEditDolar(false)} />
-              : <button onClick={() => setEditDolar(true)} className="bg-emerald-50 border border-emerald-300 text-emerald-800 font-bold text-sm px-3 py-1 rounded-lg hover:bg-emerald-100">
-                  ${dolar.toLocaleString("es-AR")} editar
-                </button>
-            }
+          <div className="flex items-end gap-3 shrink-0">
+            {ipcMap[key] != null && (
+              <div className="flex flex-col items-end">
+                <span className="text-gray-400 text-xs font-medium mb-1">IPC INDEC</span>
+                <span className="bg-orange-50 border border-orange-300 text-orange-800 font-bold text-sm px-3 py-1 rounded-lg">
+                  {ipcMap[key] > 0 ? "+" : ""}{ipcMap[key].toFixed(1)}%
+                </span>
+              </div>
+            )}
+            <div className="flex flex-col items-end">
+              <span className="text-gray-400 text-xs font-medium mb-1">Dolar Blue</span>
+              {editDolar
+                ? <input type="number" autoFocus className="w-28 border-2 border-blue-400 rounded-lg px-2 py-1 text-sm font-bold text-center focus:outline-none"
+                    value={dolar} onChange={e => setDolarMap(p => ({ ...p, [key]: Number(e.target.value) }))} onBlur={() => setEditDolar(false)} />
+                : <button onClick={() => setEditDolar(true)} className="bg-emerald-50 border border-emerald-300 text-emerald-800 font-bold text-sm px-3 py-1 rounded-lg hover:bg-emerald-100">
+                    ${dolar.toLocaleString("es-AR")} editar
+                  </button>
+              }
+            </div>
           </div>
         </div>
       )}
@@ -5125,6 +5182,7 @@ export default function App() {
         <EmployeeProfile
           emp={employees.find(e => e.id === profileEmp.id) || profileEmp}
           dolarMap={dolarMap}
+          ipcMap={ipcMap}
           ranks={ranks}
           onClose={() => setProfileEmp(null)}
           onSaveHistory={saveHistory}
