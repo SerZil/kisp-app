@@ -3218,7 +3218,7 @@ function Toast({ msg, type }) {
 }
 
 // ── PRINT PREVIEW ─────────────────────────────────────────────────────────────
-function PrintPreview({ emp, dolarMap, ranks, chartData, year, month, rangeFrom, rangeTo, onClose }) {
+function PrintPreview({ emp, dolarMap, ipcMap, ranks, chartData, year, month, rangeFrom, rangeTo, onClose }) {
   const printRef = useRef();
   const sorted = [...emp.history].sort((a, b) => a.from.localeCompare(b.from));
   const now = new Date();
@@ -3256,6 +3256,20 @@ function PrintPreview({ emp, dolarMap, ranks, chartData, year, month, rangeFrom,
       varTotal = ((last - first) / first) * 100;
       varLabel = s0.from.slice(0,7) + " → " + sN.from.slice(0,7);
     }
+  }
+
+  // IPC acumulado del rango
+  let ipcAcum = null;
+  if (ipcMap && Object.keys(ipcMap).length > 0 && effectiveFrom && effectiveTo) {
+    let factor = 1;
+    let cur = new Date(effectiveFrom + "-01");
+    const end = new Date(effectiveTo + "-01");
+    while (cur <= end) {
+      const k = mkey(cur.getFullYear(), cur.getMonth());
+      if (ipcMap[k] != null) factor *= (1 + ipcMap[k] / 100);
+      cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1);
+    }
+    ipcAcum = (factor - 1) * 100;
   }
 
   function handlePrint() {
@@ -3315,11 +3329,15 @@ function PrintPreview({ emp, dolarMap, ranks, chartData, year, month, rangeFrom,
             </div>
 
             {/* stats */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "10px", marginBottom: "14px" }}>
+            <div style={{ display: "grid", gridTemplateColumns: ipcAcum != null ? "repeat(5,1fr)" : "repeat(3,1fr)", gap: "10px", marginBottom: "14px" }}>
               {[
                 { label: "Periodos registrados", val: sorted.length, sub: sorted.length > 1 ? (sorted.length - 1) + " cambio(s)" : "Sin cambios" },
                 { label: "Antiguedad", val: (Math.floor(ageMonths/12) > 0 ? Math.floor(ageMonths/12) + "a " : "") + (ageMonths%12) + "m", sub: "desde " + fDate(emp.activeFrom) },
-                { label: "Variacion periodo", val: varTotal != null ? (varTotal > 0 ? "+" : "") + varTotal.toFixed(1) + "%" : "—", sub: varLabel, color: varTotal != null ? (varTotal > 0 ? "#15803d" : "#b91c1c") : undefined },
+                { label: "Variacion salarial", val: varTotal != null ? (varTotal > 0 ? "+" : "") + varTotal.toFixed(1) + "%" : "—", sub: varLabel, color: varTotal != null ? (varTotal > 0 ? "#15803d" : "#b91c1c") : undefined },
+                ...(ipcAcum != null ? [
+                  { label: "IPC acumulado", val: "+" + ipcAcum.toFixed(1) + "%", sub: effectiveFrom + " → " + effectiveTo, color: "#c2410c" },
+                  { label: "Variacion real", val: varTotal != null ? ((varTotal - ipcAcum) >= 0 ? "+" : "") + (varTotal - ipcAcum).toFixed(1) + "%" : "—", sub: "salario vs inflacion", color: varTotal != null ? ((varTotal - ipcAcum) >= 0 ? "#15803d" : "#b91c1c") : undefined },
+                ] : []),
               ].map(s => (
                 <div key={s.label} style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: "6px", padding: "10px 12px" }}>
                   <div style={{ fontSize: "9px", color: "#9ca3af", textTransform: "uppercase", marginBottom: "3px" }}>{s.label}</div>
@@ -5195,6 +5213,7 @@ export default function App() {
         <PrintPreview
           emp={printData.emp}
           dolarMap={dolarMap}
+          ipcMap={ipcMap}
           ranks={ranks}
           chartData={printData.chartData}
           year={printData.year}
