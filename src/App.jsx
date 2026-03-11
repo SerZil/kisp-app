@@ -3424,8 +3424,6 @@ function PrintPreview({ emp, dolarMap, ranks, chartData, year, month, rangeFrom,
 
 // ── EMPLOYEE PROFILE MODAL ────────────────────────────────────────────────────
 function EmployeeProfile({ emp, dolarMap, ranks, onClose, onSaveHistory, onSaveNotes, onPrint }) {
-  const [addingSnap, setAddingSnap] = useState(false);
-  const [newSnap, setNewSnap] = useState({ from: "", rank: "", payments: {}, note: "" });
   const [addingNote, setAddingNote] = useState(false);
   const [newNote, setNewNote] = useState({ text: "", reminder: "" });
 
@@ -3488,14 +3486,6 @@ function EmployeeProfile({ emp, dolarMap, ranks, onClose, onSaveHistory, onSaveN
   const nowKey = mkey(new Date().getFullYear(), new Date().getMonth());
   const currentDolar = dolarMap[nowKey] || 1420;
   const currentTotal = current ? toARS(current.payments, currentDolar) : 0;
-
-  function saveSnap() {
-    if (!newSnap.from || !newSnap.rank) return;
-    const updated = [...emp.history, { from: newSnap.from, rank: newSnap.rank, payments: { ...newSnap.payments }, note: newSnap.note }];
-    onSaveHistory(emp.id, updated);
-    setAddingSnap(false);
-    setNewSnap({ from: "", rank: "", payments: {}, note: "" });
-  }
 
   function deleteSnap(idx) {
     if (sorted.length <= 1) return;
@@ -3687,53 +3677,7 @@ function EmployeeProfile({ emp, dolarMap, ranks, onClose, onSaveHistory, onSaveN
                   );
                 })()}
               </div>
-              <button onClick={() => setAddingSnap(o => !o)} className="px-3 py-1.5 bg-gray-900 text-white rounded-lg text-xs font-bold hover:bg-gray-700">
-                {addingSnap ? "Cancelar" : "+ Registrar cambio"}
-              </button>
             </div>
-
-            {addingSnap && (
-              <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 mb-4 space-y-3">
-                <div className="text-sm font-semibold text-blue-700">Nuevo periodo</div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Fecha inicio</label>
-                    <DateInput className="w-full border border-blue-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none"
-                      value={newSnap.from} onChange={v => setNewSnap(p => ({ ...p, from: v }))} />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Cargo</label>
-                    <Select value={newSnap.rank} onChange={v => setNewSnap(p => ({ ...p, rank: v }))} options={emp.area && DATA_BY_AREA[emp.area] ? DATA_BY_AREA[emp.area].cargos : ranks} placeholder="Seleccionar" />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Nota (opcional)</label>
-                  <input className="w-full border border-blue-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none"
-                    placeholder="Ej: Aumento por evaluacion..." value={newSnap.note} onChange={e => setNewSnap(p => ({ ...p, note: e.target.value }))} />
-                </div>
-                <div className="space-y-2">
-                  <div className="text-xs font-bold text-gray-400 uppercase">Nuevos montos</div>
-                  {PAYMENT_TYPES.map(pt => {
-                    const meta = PAYMENT_META[pt];
-                    const cc = COLOR[meta.color];
-                    return (
-                      <div key={pt} className={"flex items-center gap-3 p-2 rounded-xl " + cc.bg}>
-                        <span className={"w-28 text-xs font-semibold " + cc.text}>{meta.label}</span>
-                        <input type="number" placeholder="0"
-                          className={"flex-1 border " + cc.border + " rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none"}
-                          value={newSnap.payments[pt] || ""}
-                          onChange={e => setNewSnap(p => ({ ...p, payments: { ...p.payments, [pt]: Number(e.target.value) || 0 } }))} />
-                        <span className={"text-xs opacity-60 w-8 " + cc.text}>{meta.unit}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-                <button onClick={saveSnap} disabled={!newSnap.from || !newSnap.rank}
-                  className="w-full py-2 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 disabled:opacity-40">
-                  Guardar cambio
-                </button>
-              </div>
-            )}
 
             <div className="relative">
               <div className="absolute left-5 top-0 bottom-0 w-0.5 bg-gray-200" />
