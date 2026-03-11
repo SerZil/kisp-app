@@ -3873,6 +3873,22 @@ export default function App() {
 
   // ── STORAGE: load on mount ──
   useEffect(() => {
+    async function fetchDolarBlue() {
+      try {
+        const res = await fetch("https://dolarapi.com/v1/dolares/blue");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.compra) {
+            const now = new Date();
+            const k = mkey(now.getFullYear(), now.getMonth());
+            setDolarMap(prev => ({ ...prev, [k]: data.compra }));
+          }
+        }
+      } catch (e) {
+        console.log("No se pudo obtener dolar blue:", e);
+      }
+    }
+
     async function loadFromStorage() {
       try {
         const res = await fetch(SHEETS_URL, { method: "GET", mode: "cors" });
@@ -3882,6 +3898,7 @@ export default function App() {
             setEmployees(data.employees);
             if (data.dolarMap) setDolarMap(data.dolarMap);
             setStorageReady(true);
+            fetchDolarBlue();
             return;
           }
         }
