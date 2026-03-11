@@ -4173,16 +4173,20 @@ export default function App() {
         if (e.id !== emp.id) return e;
         const existing = employees.find(ex => ex.id === emp.id);
         const lastSnap = existing && existing.history.length > 0 ? existing.history[existing.history.length - 1] : null;
-        const paymentsChanged = JSON.stringify(lastSnap?.payments) !== JSON.stringify(emp.payments);
+        // Strip zero-value payments before comparing and saving
+        const cleanPayments = Object.fromEntries(Object.entries(emp.payments || {}).filter(([, v]) => v > 0));
+        const lastPayments = lastSnap?.payments || {};
+        const sortedStr = o => JSON.stringify(Object.fromEntries(Object.entries(o).sort()));
+        const paymentsChanged = sortedStr(lastPayments) !== sortedStr(cleanPayments);
         const rankChanged = lastSnap?.rank !== emp.rank;
         let newHistory = e.history.length > 0 ? [...e.history] : [];
         if (paymentsChanged || rankChanged) {
           const today = new Date().toISOString().slice(0, 7) + "-01";
           const alreadyToday = newHistory.length > 0 && newHistory[newHistory.length - 1].from.slice(0, 7) === today.slice(0, 7);
           if (alreadyToday) {
-            newHistory = newHistory.map((s, i) => i === newHistory.length - 1 ? { ...s, payments: { ...emp.payments }, rank: emp.rank } : s);
+            newHistory = newHistory.map((s, i) => i === newHistory.length - 1 ? { ...s, payments: cleanPayments, rank: emp.rank } : s);
           } else {
-            newHistory = [...newHistory, { from: today, rank: emp.rank, payments: { ...emp.payments }, note: "" }];
+            newHistory = [...newHistory, { from: today, rank: emp.rank, payments: cleanPayments, note: "" }];
           }
         }
         return { ...emp, history: newHistory };
