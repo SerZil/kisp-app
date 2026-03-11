@@ -4170,12 +4170,20 @@ export default function App() {
       }
       setEmployees(p => p.map(e => {
         if (e.id !== emp.id) return e;
-        // Update last snapshot in history with new payments
-        const newHistory = e.history.length > 0
-          ? e.history.map((s, i) => i === e.history.length - 1
-              ? { ...s, payments: { ...emp.payments }, rank: emp.rank }
-              : s)
-          : [{ from: emp.activeFrom || new Date().toISOString().slice(0,10), rank: emp.rank, payments: { ...emp.payments }, note: "" }];
+        const existing = employees.find(ex => ex.id === emp.id);
+        const lastSnap = existing && existing.history.length > 0 ? existing.history[existing.history.length - 1] : null;
+        const paymentsChanged = JSON.stringify(lastSnap?.payments) !== JSON.stringify(emp.payments);
+        const rankChanged = lastSnap?.rank !== emp.rank;
+        let newHistory = e.history.length > 0 ? [...e.history] : [];
+        if (paymentsChanged || rankChanged) {
+          const today = new Date().toISOString().slice(0, 7) + "-01";
+          const alreadyToday = newHistory.length > 0 && newHistory[newHistory.length - 1].from.slice(0, 7) === today.slice(0, 7);
+          if (alreadyToday) {
+            newHistory = newHistory.map((s, i) => i === newHistory.length - 1 ? { ...s, payments: { ...emp.payments }, rank: emp.rank } : s);
+          } else {
+            newHistory = [...newHistory, { from: today, rank: emp.rank, payments: { ...emp.payments }, note: "" }];
+          }
+        }
         return { ...emp, history: newHistory };
       }));
     } else {
