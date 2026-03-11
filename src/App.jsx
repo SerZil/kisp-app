@@ -4634,7 +4634,7 @@ export default function App() {
                     if (!w) { alert("Permitir popups para imprimir"); return; }
                     w.document.write(`<!DOCTYPE html><html><head><meta charset='UTF-8'><style>
                       @page{margin:12mm;size:A4 landscape}
-                      *{box-sizing:border-box;font-family:Arial,sans-serif}
+                      *{box-sizing:border-box;font-family:Arial,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}
                       body{margin:0;padding:12px;font-size:10px;color:#111}
                       table{width:100%;border-collapse:collapse}
                       th{background:#374151;color:white;padding:6px 8px;font-size:9px;text-align:right;white-space:nowrap}
