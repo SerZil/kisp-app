@@ -3740,7 +3740,8 @@ function EmployeeProfile({ emp, dolarMap, ranks, onClose, onSaveHistory, onSaveN
               {filteredHistory.length === 0 && (
                 <div className="text-center py-8 text-gray-400 text-sm">No hay cambios en este periodo</div>
               )}
-              {filteredHistory.map((snap, i) => {
+              {[...filteredHistory].reverse().map((snap, ri) => {
+                const i = filteredHistory.length - 1 - ri;
                 const isLast = snap === sorted[sorted.length - 1];
                 const next = filteredHistory[i + 1];
                 const sd = new Date(snap.from);
