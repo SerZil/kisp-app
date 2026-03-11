@@ -142,7 +142,8 @@ export default function PrintPreview({ emp, dolarMap, ranks, chartData, year, mo
                     </tr>
                   </thead>
                   <tbody>
-                    {snapsUpToPeriod.map((snap, i) => {
+                    {[...snapsUpToPeriod].reverse().map((snap, ri) => {
+                      const i = snapsUpToPeriod.length - 1 - ri;
                       const isLast = i === snapsUpToPeriod.length - 1;
                       const next = sorted[i + 1];
                       const sd = new Date(snap.from);
