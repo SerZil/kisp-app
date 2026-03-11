@@ -3814,7 +3814,8 @@ function EmployeeProfile({ emp, dolarMap, ranks, onClose, onSaveHistory, onSaveN
 // ── MAIN APP ──────────────────────────────────────────────────────────────────
 export default function App() {
   const [storageReady, setStorageReady] = useState(false);
-  const [employees, setEmployees] = useState(EMPLOYEES_INIT);
+  const [loadError, setLoadError] = useState(false);
+  const [employees, setEmployees] = useState([]);
   const [dolarMap, setDolarMap]   = useState(DOLAR_BLUE);
   const [cargaSocial, setCargaSocial] = useState(50);
   const [cargaInput, setCargaInput]   = useState("50");
@@ -3929,33 +3930,23 @@ export default function App() {
   useEffect(() => {
     async function loadFromStorage() {
       try {
-        // Intentar cargar desde Google Sheets primero
         const res = await fetch(SHEETS_URL, { method: "GET", mode: "cors" });
         if (res.ok) {
           const data = await res.json();
           if (data.employees) {
             setEmployees(data.employees);
             if (data.dolarMap) setDolarMap(data.dolarMap);
-            // Guardar en localStorage como backup local
-            localStorage.setItem("kisp-employees", JSON.stringify(data.employees));
-            if (data.dolarMap) localStorage.setItem("kisp-dolar", JSON.stringify(data.dolarMap));
             setStorageReady(true);
             return;
           }
         }
+        setLoadError(true);
+        setStorageReady(true);
       } catch (e) {
-        console.log("Sheet no disponible, usando localStorage");
+        console.error("Error cargando desde Sheets:", e);
+        setLoadError(true);
+        setStorageReady(true);
       }
-      // Fallback: localStorage
-      try {
-        const stored = JSON.parse(localStorage.getItem("kisp-employees") || "null");
-        if (stored) setEmployees(stored);
-        const dolarStored = JSON.parse(localStorage.getItem("kisp-dolar") || "null");
-        if (dolarStored) setDolarMap(dolarStored);
-      } catch (e) {
-        console.log("Storage load: usando datos por defecto");
-      }
-      setStorageReady(true);
     }
     loadFromStorage();
   }, []);
@@ -4224,6 +4215,19 @@ export default function App() {
       <div className="flex flex-col items-center gap-3">
         <div className="w-10 h-10 rounded-full border-4 border-gray-200 animate-spin" style={{borderTopColor:"#0a4a3a"}} />
         <div className="text-sm text-gray-500 font-medium">Cargando nómina...</div>
+      </div>
+    </div>
+  );
+
+  if (loadError) return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center" style={{fontFamily:"Inter,system-ui,sans-serif"}}>
+      <div className="flex flex-col items-center gap-4 p-8 bg-white rounded-2xl shadow-lg max-w-sm text-center">
+        <div className="text-4xl">⚠️</div>
+        <div className="text-lg font-bold text-gray-800">No se pudo conectar con Google Sheets</div>
+        <div className="text-sm text-gray-500">Los datos no están disponibles. Por favor verificá tu conexión y recargá la página.</div>
+        <button onClick={() => window.location.reload()} className="px-5 py-2 bg-gray-900 text-white rounded-xl text-sm font-bold hover:bg-gray-700">
+          Reintentar
+        </button>
       </div>
     </div>
   );
