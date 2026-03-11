@@ -3867,6 +3867,12 @@ export default function App() {
       cc: "Robert Kendal <rkendal@kisp.com>",
       subject: "Bonus Update — {name} · {monthYear}",
       body: "Hi Ezequiel,\n\nPlease be advised that as of {monthYear}, {name} will be receiving a bonus of ${bonusAmount}.\n\nKindly process this accordingly.\n\nThank you!"
+    },
+    cryptoChange: {
+      to: "Mary Velasco <mvelasco@kisptech.com>",
+      cc: "Robert Kendal <rkendal@kisp.com>",
+      subject: "Salary Update — {name} · {monthYear}",
+      body: "Hi Mary,\n\nWe increased {name}'s salary to ${cryptoAmount}\nPlease plan on paying the new salary effective {monthYear}\n\nThank you,"
     }
   });
   const [cmpA, setCmpA] = useState(null);
@@ -4155,7 +4161,8 @@ export default function App() {
       .replace(/\{arsNet\}/g, arsOnlyParts)
       .replace(/\{monthYear\}/g, monthYear)
       .replace(/\{cash2Amount\}/g, cash2Amount)
-      .replace(/\{bonusAmount\}/g, emp.payments && emp.payments.Bonus ? Math.round(emp.payments.Bonus).toLocaleString("es-AR") : "—");
+      .replace(/\{bonusAmount\}/g, emp.payments && emp.payments.Bonus ? Math.round(emp.payments.Bonus).toLocaleString("es-AR") : "—")
+      .replace(/\{cryptoAmount\}/g, emp.payments && emp.payments.Crypto ? Math.round(emp.payments.Crypto).toLocaleString("es-AR") : "—");
   }
 
   function openGmailDraft(tmplKey, emp) {
@@ -4194,6 +4201,12 @@ export default function App() {
       const newBonus = emp.payments ? (emp.payments.Bonus || 0) : 0;
       if (newBonus !== oldBonus && newBonus > 0) {
         openGmailDraft("bonusChange", { ...emp, _monthYear: monthYear });
+      }
+      const lastSnap2 = existing && existing.history.length > 0 ? existing.history[existing.history.length - 1] : null;
+      const oldCrypto = lastSnap2?.payments?.Crypto || 0;
+      const newCrypto = emp.payments ? (emp.payments.Crypto || 0) : 0;
+      if (newCrypto !== oldCrypto && newCrypto > 0) {
+        openGmailDraft("cryptoChange", { ...emp, _monthYear: monthYear });
       }
       setEmployees(p => p.map(e => {
         if (e.id !== emp.id) return e;
@@ -5437,8 +5450,8 @@ function CmpPanel({ emp, search, setSearch, setEmp, label, allEmps, dolar, month
 
 function EmailTemplatesConfig({ emailTemplates, setEmailTemplates, fillTemplate }) {
   const [expanded, setExpanded] = React.useState({});
-  const labels = { salesSupport: "Sales Support → Antonella", cad: "CAD → Mariela, Andrea, Silvana", crypto: "Crypto payment → Mary, Eliana, Rob", monotributo: "Monotributo → Ezequiel", dependencia: "Relación de Dependencia → Ezequiel", cash2Change: "Cash 2 change → Ezequiel + Rob", bonusChange: "Bonus change → Ezequiel + Rob" };
-  const colors = { salesSupport: "#7e22ce", cad: "#1d4ed8", crypto: "#b45309", monotributo: "#166534", dependencia: "#15803d", cash2Change: "#0e7490", bonusChange: "#be185d" };
+  const labels = { salesSupport: "Sales Support → Antonella", cad: "CAD → Mariela, Andrea, Silvana", crypto: "Crypto payment → Mary, Eliana, Rob", monotributo: "Monotributo → Ezequiel", dependencia: "Relación de Dependencia → Ezequiel", cash2Change: "Cash 2 change → Ezequiel + Rob", bonusChange: "Bonus change → Ezequiel + Rob", cryptoChange: "Crypto salary change → Mary + Rob" };
+  const colors = { salesSupport: "#7e22ce", cad: "#1d4ed8", crypto: "#b45309", monotributo: "#166534", dependencia: "#15803d", cash2Change: "#0e7490", bonusChange: "#be185d", cryptoChange: "#854d0e" };
   return (
     <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
       <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-2" style={{background:"#f0faf5"}}>
