@@ -4173,8 +4173,7 @@ export default function App() {
         if (e.id !== emp.id) return e;
         const existing = employees.find(ex => ex.id === emp.id);
         const lastSnap = existing && existing.history.length > 0 ? existing.history[existing.history.length - 1] : null;
-        // Strip zero-value payments before comparing and saving
-        const cleanPayments = Object.fromEntries(Object.entries(emp.payments || {}).filter(([, v]) => v > 0));
+        const cleanPayments = { ...(emp.payments || {}) };
         const lastPayments = lastSnap?.payments || {};
         const sortedStr = o => JSON.stringify(Object.fromEntries(Object.entries(o).sort()));
         const paymentsChanged = sortedStr(lastPayments) !== sortedStr(cleanPayments);
