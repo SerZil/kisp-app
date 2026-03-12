@@ -828,7 +828,7 @@ const EMPLOYEES_INIT = [
     { from:"2025-04-01", rank:"", payments:{"Crypto": 700, "Healthcare": 150, "Allowance": 300}, note:"" },
     { from:"2025-06-01", rank:"Designer Cad & Space Planner", payments:{"Crypto": 700, "Healthcare": 150, "Allowance": 300}, note:"" }
   ]},
-  { id:211, name:"MICAELA MUÑOZ", team:"HNI & Educational", activeFrom:"2023-11-13", activeTo:"2026-02-28", area:"", supervisor:"", notes:[], dni:"42.999.446", address:"", personalEmail:"",
+  { id:211, name:"MICAELA MUÑOZ", team:"HNI & Educational", activeFrom:"2023-11-13", activeTo:"2026-03-31", area:"", supervisor:"", notes:[], dni:"42.999.446", address:"", personalEmail:"",
     history:[
     { from:"2023-11-01", rank:"", payments:{"Canada": 350}, note:"" },
     { from:"2024-03-01", rank:"", payments:{"Canada": 350, "Healthcare": 100}, note:"" },
@@ -3821,6 +3821,7 @@ export default function App() {
   const [areaFilter, setAreaFilter] = useState("All");
   const [supervisorFilter, setSupervisorFilter] = useState("All");
   const [search, setSearch]       = useState("");
+  const [showInactive, setShowInactive] = useState(false);
   const [rankGroup, setRankGroup]         = useState("area");
   const [rankSort, setRankSort]           = useState("desc");
   const [sortField, setSortField]         = useState(null);
@@ -3872,7 +3873,7 @@ export default function App() {
       to: "Mary Velasco <mvelasco@kisptech.com>",
       cc: "Robert Kendal <rkendal@kisp.com>",
       subject: "Salary Update — {name} · {monthYear}",
-      body: "Hi Mary,\n\nWe increased {name}'s salary to ${cryptoAmount}\nPlease plan on paying the new salary effective {monthYear}\n\nThank you,"
+      body: "Hi Mary,\n\nWe {changeDirection} {name}'s salary to ${cryptoAmount}\nPlease plan on paying the new salary effective {monthYear}\n\nThank you,"
     }
   });
   const [cmpA, setCmpA] = useState(null);
@@ -4045,6 +4046,13 @@ export default function App() {
       });
   }, [employees, year, month, key]);
 
+  const inactiveFiltered = useMemo(() => {
+    if (!showInactive) return [];
+    return employees
+      .filter(e => e.activeTo && (!search || e.name.toLowerCase().includes(search.toLowerCase())))
+      .sort((a, b) => b.activeTo.localeCompare(a.activeTo));
+  }, [employees, showInactive, search]);
+
   const filtered = useMemo(() => activeWithSnap.filter(e => {
     if (payFilter && !e.payments[payFilter]) return false;
     if (areaFilter !== "All" && e.area !== areaFilter) return false;
@@ -4162,7 +4170,8 @@ export default function App() {
       .replace(/\{monthYear\}/g, monthYear)
       .replace(/\{cash2Amount\}/g, cash2Amount)
       .replace(/\{bonusAmount\}/g, emp.payments && emp.payments.Bonus ? Math.round(emp.payments.Bonus).toLocaleString("es-AR") : "—")
-      .replace(/\{cryptoAmount\}/g, emp.payments && emp.payments.Crypto ? Math.round(emp.payments.Crypto).toLocaleString("es-AR") : "—");
+      .replace(/\{cryptoAmount\}/g, emp.payments && emp.payments.Crypto ? Math.round(emp.payments.Crypto).toLocaleString("es-AR") : "—")
+      .replace(/\{changeDirection\}/g, emp._changeDirection || "updated");
   }
 
   function openGmailDraft(tmplKey, emp) {
@@ -4206,7 +4215,7 @@ export default function App() {
       const oldCrypto = lastSnap2?.payments?.Crypto || 0;
       const newCrypto = emp.payments ? (emp.payments.Crypto || 0) : 0;
       if (newCrypto !== oldCrypto && newCrypto > 0) {
-        openGmailDraft("cryptoChange", { ...emp, _monthYear: monthYear });
+        openGmailDraft("cryptoChange", { ...emp, _monthYear: monthYear, _changeDirection: newCrypto > oldCrypto ? "increased" : "decreased" });
       }
       setEmployees(p => p.map(e => {
         if (e.id !== emp.id) return e;
@@ -4670,6 +4679,13 @@ export default function App() {
                     <button onClick={() => setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-lg leading-none">×</button>
                   )}
                 </div>
+                <button
+                  onClick={() => setShowInactive(v => !v)}
+                  title="Buscar empleados inactivos"
+                  className={"shrink-0 px-3 py-2 rounded-lg text-sm font-medium border transition-colors " + (showInactive ? "bg-red-100 text-red-700 border-red-300" : "bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200")}
+                >
+                  {showInactive ? "Inactivos ×" : "Inactivos"}
+                </button>
                 <button onClick={() => {
                     const emps = activeWithSnap.slice().sort((a,b) => (a.area||"").localeCompare(b.area||"") || a.name.localeCompare(b.name));
                     const grouped = {};
@@ -4789,6 +4805,38 @@ export default function App() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
+                  {showInactive ? (
+                    inactiveFiltered.length === 0 ? (
+                      <tr><td colSpan={7} className="text-center py-12 text-gray-400 text-sm">{search ? `Sin inactivos que coincidan con "${search}"` : "No hay empleados inactivos"}</td></tr>
+                    ) : inactiveFiltered.map(emp => (
+                      <tr key={emp.id} className="hover:bg-red-50 transition-colors bg-red-50/30">
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2.5">
+                            <div className={"w-8 h-8 " + avatarColor(emp.id) + " rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0 opacity-60"}>
+                              {initials(emp.name)}
+                            </div>
+                            <div>
+                              <div className="font-medium text-gray-700 tracking-wide">{emp.name}</div>
+                              <div className="text-xs text-gray-400">desde {fDate(emp.activeFrom)}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-500">{emp.team || "—"}</td>
+                        <td className="px-4 py-3 text-sm text-gray-500">{emp.area || "—"}</td>
+                        <td className="px-4 py-3">
+                          <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full font-medium">Baja: {fDate(emp.activeTo)}</span>
+                        </td>
+                        <td colSpan={2} />
+                        <td className="px-4 py-3 text-right">
+                          <button onClick={() => setModal({ data: emp, mode: "edit" })}
+                            className="text-xs px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 font-medium">
+                            Editar
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <>
                   {filtered.length === 0 && (
                     <tr><td colSpan={7} className="text-center py-12 text-gray-400 text-sm">No hay empleados en {MONTHS[month]} {year}</td></tr>
                   )}
@@ -4866,13 +4914,17 @@ export default function App() {
                       </tr>
                     );
                   })}
+                    </>
+                  )}
                 </tbody>
                 <tfoot className="bg-gray-50 border-t-2 border-gray-200">
                   <tr>
                     <td colSpan={5} className="px-4 py-3 text-sm font-semibold text-gray-700">
-                      {filtered.length} empleados activos en {MONTHS[month]} {year}
+                      {showInactive
+                        ? `${inactiveFiltered.length} empleados inactivos`
+                        : `${filtered.length} empleados activos en ${MONTHS[month]} ${year}`}
                     </td>
-                    <td className="px-4 py-3 text-right font-black text-gray-900 text-base">{fARS(filteredTotal)}</td>
+                    <td className="px-4 py-3 text-right font-black text-gray-900 text-base">{showInactive ? "" : fARS(filteredTotal)}</td>
                     <td />
                   </tr>
                 </tfoot>
