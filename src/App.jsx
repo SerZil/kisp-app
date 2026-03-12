@@ -4143,7 +4143,7 @@ export default function App() {
   function goNominaFilter(pt) { setPayFilter(pt); setTeamFilter("All"); setCargoFilter("All"); setSearch(""); setView("nomina"); }
   function deactivate(emp) { setEmployees(p => p.map(e => e.id === emp.id ? { ...e, activeTo: key + "-31" } : e)); showToast(emp.name + " dado de baja", "warn"); }
 
-  function fillTemplate(tmpl, emp) {
+  function fillTemplate(tmpl, emp, asHtml = false) {
     const startDate = emp.activeFrom
       ? new Date(emp.activeFrom).toLocaleDateString("en-US", { year:"numeric", month:"long", day:"numeric" })
       : "their start date";
@@ -4157,9 +4157,12 @@ export default function App() {
     }).join(" + ") : "—";
     const monthYear = emp._monthYear || new Date().toLocaleDateString("en-US", { year:"numeric", month:"long" });
     const cash2Amount = emp.payments && emp.payments.Cash2 ? Math.round(emp.payments.Cash2).toLocaleString("es-AR") : "—";
+    const nameVal     = asHtml ? `<strong>${emp.name || "—"}</strong>` : (emp.name || "—");
+    const dateVal     = asHtml ? `<strong>${startDate.toUpperCase()}</strong>` : startDate;
+    const monthVal    = asHtml ? `<strong>${monthYear.toUpperCase()}</strong>` : monthYear;
     return tmpl
-      .replace(/\{name\}/g, emp.name || "—")
-      .replace(/\{startDate\}/g, startDate)
+      .replace(/\{name\}/g, nameVal)
+      .replace(/\{startDate\}/g, dateVal)
       .replace(/\{dni\}/g, emp.dni || "—")
       .replace(/\{address\}/g, emp.address || "—")
       .replace(/\{personalEmail\}/g, emp.personalEmail || "—")
@@ -4167,7 +4170,7 @@ export default function App() {
       .replace(/\{team\}/g, emp.team || "—")
       .replace(/\{salary\}/g, salaryParts)
       .replace(/\{arsNet\}/g, arsOnlyParts)
-      .replace(/\{monthYear\}/g, monthYear)
+      .replace(/\{monthYear\}/g, monthVal)
       .replace(/\{cash2Amount\}/g, cash2Amount)
       .replace(/\{bonusAmount\}/g, emp.payments && emp.payments.Bonus ? Math.round(emp.payments.Bonus).toLocaleString("es-AR") : "—")
       .replace(/\{cryptoAmount\}/g, emp.payments && emp.payments.Crypto ? Math.round(emp.payments.Crypto).toLocaleString("es-AR") : "—")
@@ -4179,6 +4182,7 @@ export default function App() {
     if (!tmpl) return;
     const filledSubject = fillTemplate(tmpl.subject, emp);
     const filledBody = fillTemplate(tmpl.body, emp);
+    const filledHtmlBody = fillTemplate(tmpl.body, emp, true).replace(/\n/g, "<br>");
     fetch(SHEETS_URL, {
       method: "POST",
       mode: "no-cors",
@@ -4189,6 +4193,7 @@ export default function App() {
         cc: tmpl.cc || "",
         subject: filledSubject,
         body: filledBody,
+        htmlBody: filledHtmlBody,
       }),
     });
     showToast("✉️ Borrador creado en Gmail");
