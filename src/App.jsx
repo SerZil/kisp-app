@@ -5901,6 +5901,17 @@ function EmployeeModal({ data, mode, teams, ranks, areas, supervisors, onSave, o
             </div>
           </div>
         </div>
+        {(() => {
+          const totalUSD = (f.payments.Crypto||0)+(f.payments.Canada||0)+(f.payments.Healthcare||0)+(f.payments.Allowance||0)+(f.payments.Cash2||0)+(f.payments.Bonus||0);
+          return totalUSD > 0 ? (
+            <div className="px-4 py-3 border-t border-gray-100 bg-gray-50 shrink-0">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-gray-400 uppercase tracking-wide">Total USD</span>
+                <span className="text-2xl font-black text-gray-800">U$ {totalUSD.toLocaleString("es-AR")}</span>
+              </div>
+            </div>
+          ) : null;
+        })()}
         <div className="p-4 border-t border-gray-200 flex gap-3 justify-end shrink-0">
           <button onClick={onClose} className="px-4 py-2 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50">Cancelar</button>
           {mode === "add" && !f.activeFrom && (
