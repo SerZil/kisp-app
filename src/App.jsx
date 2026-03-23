@@ -17,7 +17,7 @@ const PAYMENT_META = {
   Allowance:  { label:"Allowance",   unit:"USD",  color:"yellow", prefix:"U$"  },
   Cash2:      { label:"Cash 2",      unit:"USD",  color:"green",  prefix:"U$"  },
   Bonus:      { label:"Bonus",       unit:"USD",  color:"teal",   prefix:"U$"  },
-  Mono:       { label:"Monotributo",  unit:"ARS",  color:"green",  prefix:"$"   },
+  Mono:       { label:"Monotributo BA", unit:"ARS",  color:"green",  prefix:"$"   },
 };
 
 const COLOR = {
@@ -3033,7 +3033,13 @@ function isActiveInMonth(emp, y, m) {
   const first = mkey(y, m) + "-01";
   const last  = mkey(y, m) + "-31";
   if (emp.activeFrom > last) return false;
-  if (emp.activeTo && emp.activeTo < first) return false;
+  // Inactive only if activeTo is in a PREVIOUS month (still active throughout activeTo's month)
+  if (emp.activeTo) {
+    const parts = emp.activeTo.split("-");
+    const ay = parseInt(parts[0], 10);
+    const am = parseInt(parts[1], 10);
+    if (ay < y || (ay === y && am < m + 1)) return false;
+  }
   return true;
 }
 
@@ -3076,6 +3082,13 @@ const fUSD = n => "U$ " + new Intl.NumberFormat("es-AR", { maximumFractionDigits
 const initials = n => n.split(" ").map(x => x[0]).join("").substring(0, 2).toUpperCase();
 const avatarColor = id => AVATAR_COLORS[id % AVATAR_COLORS.length];
 const rankColor = (rank, ranks) => { const i = ranks.indexOf(rank); return i >= 0 ? RANK_COLORS[i % RANK_COLORS.length] : "bg-gray-100 text-gray-600"; };
+const MONTHS_ES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+const fDateLong = d => {
+  if (!d) return "";
+  const parts = d.split("-");
+  if (parts.length === 3) return parts[2].padStart(2,"0") + " " + MONTHS_ES[parseInt(parts[1],10)-1] + " " + parts[0];
+  return d;
+};
 const fDate = d => {
   if (!d) return "";
   const parts = d.split("-");
@@ -3277,10 +3290,10 @@ function PrintPreview({ emp, dolarMap, ipcMap, ranks, chartData, year, month, ra
     const content = printRef.current.innerHTML;
     const w = window.open("", "_blank");
     if (!w) { alert("Por favor permitir popups para imprimir"); return; }
-    w.document.write("<!DOCTYPE html><html><head><meta charset='UTF-8'><style>" +
+    w.document.write("<!DOCTYPE html><html><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width,initial-scale=1'><style>" +
       "@page{margin:15mm;size:A4}" +
-      "*{box-sizing:border-box;font-family:Arial,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}" +
-      "body{margin:0;padding:16px;font-size:11px;color:#111}" +
+      "*{box-sizing:border-box;font-family:Arial,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact;max-width:100%}" +
+      "body{margin:0;padding:16px;font-size:11px;color:#111;overflow-x:hidden}" +
       "</style></head><body>" + content + "</body></html>");
     w.document.close();
     w.onload = () => { w.focus(); w.print(); w.close(); };
@@ -3313,7 +3326,7 @@ function PrintPreview({ emp, dolarMap, ipcMap, ranks, chartData, year, month, ra
           <div ref={printRef} style={{ background: "white", padding: "24px", borderRadius: "8px", fontFamily: "Arial,sans-serif", fontSize: "11px", color: "#111" }}>
 
             {/* header */}
-            <div style={{ background: "#1f2937", color: "white", padding: "16px 20px", borderRadius: "8px", marginBottom: "14px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+            <div style={{ background: "#1f2937", color: "white", padding: "16px 20px", borderRadius: "8px", marginBottom: "14px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "10px" }}>
               <div>
                 <div style={{ fontSize: "18px", fontWeight: 900, marginBottom: "3px" }}>{emp.name}</div>
                 <div style={{ color: "#9ca3af", fontSize: "11px" }}>Equipo: {emp.team}</div>
@@ -3329,7 +3342,7 @@ function PrintPreview({ emp, dolarMap, ipcMap, ranks, chartData, year, month, ra
             </div>
 
             {/* stats */}
-            <div style={{ display: "grid", gridTemplateColumns: ipcAcum != null ? "repeat(5,1fr)" : "repeat(3,1fr)", gap: "10px", marginBottom: "14px" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))", gap: "8px", marginBottom: "14px" }}>
               {[
                 { label: "Periodos registrados", val: sorted.length, sub: sorted.length > 1 ? (sorted.length - 1) + " cambio(s)" : "Sin cambios" },
                 { label: "Antiguedad", val: (Math.floor(ageMonths/12) > 0 ? Math.floor(ageMonths/12) + "a " : "") + (ageMonths%12) + "m", sub: "desde " + fDate(emp.activeFrom) },
@@ -3472,7 +3485,7 @@ function EmployeeProfile({ emp, dolarMap, ipcMap, ranks, onClose, onSaveHistory,
   }, []);
   const firstMonth = useMemo(() => sorted[0]?.from?.slice(0, 7) || "2023-01", [sorted]);
   const [rangeFrom, setRangeFrom] = useState(defaultFrom);
-  const [rangeTo, setRangeTo]     = useState(new Date().toISOString().slice(0, 7));
+  const [rangeTo, setRangeTo]     = useState(() => { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() + 1); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); });
 
   const chartData = useMemo(() => {
     const pts = [];
@@ -3744,6 +3757,23 @@ function EmployeeProfile({ emp, dolarMap, ipcMap, ranks, onClose, onSaveHistory,
                   const prevTotal = toARS(prev.payments, pd);
                   if (prevTotal > 0) pct = ((arsTotal - prevTotal) / prevTotal) * 100;
                 }
+                const prev = i > 0 ? filteredHistory[i - 1] : null;
+                const diffLines = [];
+                if (prev) {
+                  if (snap.rank !== prev.rank) diffLines.push(`Cargo: ${prev.rank || "—"} → ${snap.rank || "—"}`);
+                  const allKeys = new Set([...Object.keys(snap.payments || {}), ...Object.keys(prev.payments || {})]);
+                  allKeys.forEach(pt => {
+                    const oldVal = (prev.payments || {})[pt] || 0;
+                    const newVal = (snap.payments || {})[pt] || 0;
+                    if (oldVal === newVal) return;
+                    const meta = PAYMENT_META[pt];
+                    const lbl = meta ? meta.label : pt;
+                    const pfx = (pt === "ARS" || pt === "Mono") ? "$" : "U$";
+                    if (oldVal === 0) diffLines.push(`${lbl} agregado: ${pfx}${newVal}`);
+                    else if (newVal === 0) diffLines.push(`${lbl} eliminado`);
+                    else diffLines.push(`${lbl}: ${pfx}${oldVal} → ${pfx}${newVal}`);
+                  });
+                }
                 return (
                   <div key={i} className="relative flex gap-4 pb-5">
                     <div className={"relative z-10 w-10 h-10 rounded-full flex items-center justify-center shrink-0 border-2 " + (isLast ? "bg-blue-600 border-blue-600" : "bg-white border-gray-300")}>
@@ -3753,12 +3783,23 @@ function EmployeeProfile({ emp, dolarMap, ipcMap, ranks, onClose, onSaveHistory,
                       <div className="flex items-start justify-between mb-2">
                         <div>
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-bold text-gray-800 text-sm">{fDate(snap.from)}</span>
+                            <input type="month" value={snap.from.slice(0,7)}
+                              onChange={e => {
+                                if (!e.target.value) return;
+                                const newFrom = e.target.value + "-01";
+                                onSaveHistory(emp.id, emp.history.map(s => s === snap ? { ...s, from: newFrom } : s));
+                              }}
+                              className="font-bold text-gray-800 text-sm border-0 bg-transparent focus:outline-none focus:ring-1 focus:ring-blue-300 rounded px-1 cursor-pointer" />
                             {next && <span className="text-gray-400 text-xs">→ {fDate(next.from)}</span>}
                             {isLast && <span className="bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded-full font-bold">Actual</span>}
                             <span className={"px-2 py-0.5 rounded-full text-xs font-medium " + rankColor(snap.rank, ranks)}>{snap.rank}</span>
                           </div>
                           {snap.note && <div className="text-xs text-gray-500 mt-1 italic">{snap.note}</div>}
+                          {diffLines.length > 0 && (
+                            <div className="mt-1 space-y-0.5">
+                              {diffLines.map((l, di) => <div key={di} className="text-xs text-gray-400">{l}</div>)}
+                            </div>
+                          )}
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                           {pct != null && (
@@ -3766,9 +3807,9 @@ function EmployeeProfile({ emp, dolarMap, ipcMap, ranks, onClose, onSaveHistory,
                               {pct > 0 ? "+" : ""}{pct.toFixed(1)}%
                             </span>
                           )}
-                          {sorted.indexOf(snap) > 0 && (
-                            <button onClick={() => deleteSnap(sorted.indexOf(snap))} className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-50 text-red-400 text-xs transition-opacity">
-                              Del
+                          {emp.history.length > 1 && (
+                            <button onClick={() => { if (window.confirm("¿Borrar esta entrada del historial?")) deleteSnap(sorted.indexOf(snap)); }} className="p-1 rounded hover:bg-red-50 text-red-400 text-xs border border-red-200">
+                              × Borrar
                             </button>
                           )}
                         </div>
@@ -3822,6 +3863,7 @@ export default function App() {
   const [supervisorFilter, setSupervisorFilter] = useState("All");
   const [search, setSearch]       = useState("");
   const [showInactive, setShowInactive] = useState(false);
+  const [showFuture, setShowFuture] = useState(false);
   const [rankGroup, setRankGroup]         = useState("area");
   const [rankSort, setRankSort]           = useState("desc");
   const [sortField, setSortField]         = useState(null);
@@ -3874,6 +3916,24 @@ export default function App() {
       cc: "Robert Kendal <rkendal@kisp.com>",
       subject: "Salary Update — {name} · {monthYear}",
       body: "Hi Mary,\n\nWe {changeDirection} {name}'s salary to ${cryptoAmount}\nPlease plan on paying the new salary effective {monthYear}\n\nThank you,"
+    },
+    canadaNew: {
+      to: "Mary Velasco <mvelasco@kisptech.com>",
+      cc: "Eliana Arregui <earregui@kisp.com>, Robert Kendal <rkendal@kisp.com>",
+      subject: "New Team Member - Canada USD — {name}",
+      body: "Hi Mary,\n\nPlease find below the details for our new team member joining on {startDate}:\n\nFull Name: {name}\nDNI: {dni}\nAddress: {address}\nPersonal Email: {personalEmail}\nDepartment: {area}\nSalary: {salary}\nStart Date: {startDate}\n\nCould you please reach out to coordinate their onboarding?\n\nThank you!"
+    },
+    cryptoToCanada: {
+      to: "Mary Velasco <mvelasco@kisptech.com>",
+      cc: "Robert Kendal <rkendal@kisp.com>",
+      subject: "USD from Canada — {name} · {monthYear}",
+      body: "Hi Mary,\n\nPlease be advised that effective {monthYear}, {name} will no longer be paid via USDT and will instead be paid from Canada, sending MONOTRIBUTO \"E\". Please give {himHer} all the details to proceed.\n\nKindly remove {himHer} from the USDT payment schedule and add {himHer} to the Canada USD payment list starting {monthYear}.\n\nThank you,"
+    },
+    resignation: {
+      to: "Mary Velasco <mvelasco@kisptech.com>",
+      cc: "",
+      subject: "Resignation — {name}",
+      body: "Hi Mary,\n\nI wanted to inform you that {name} has resigned from {hisHer} position, effective {endDate}.\n\nCould you please initiate and follow up on the offboarding process accordingly?\n\nThank you,"
     }
   });
   const [cmpA, setCmpA] = useState(null);
@@ -4053,6 +4113,14 @@ export default function App() {
       .sort((a, b) => b.activeTo.localeCompare(a.activeTo));
   }, [employees, showInactive, search]);
 
+  const futureEmployees = useMemo(() => {
+    if (!showFuture) return [];
+    const today = new Date().toISOString().slice(0, 10);
+    return employees
+      .filter(e => e.activeFrom > today && !e.activeTo)
+      .sort((a, b) => a.activeFrom.localeCompare(b.activeFrom));
+  }, [employees, showFuture]);
+
   const filtered = useMemo(() => activeWithSnap.filter(e => {
     if (payFilter && !e.payments[payFilter]) return false;
     if (areaFilter !== "All" && e.area !== areaFilter) return false;
@@ -4144,10 +4212,8 @@ export default function App() {
   function deactivate(emp) { setEmployees(p => p.map(e => e.id === emp.id ? { ...e, activeTo: key + "-31" } : e)); showToast(emp.name + " dado de baja", "warn"); }
 
   function fillTemplate(tmpl, emp, asHtml = false) {
-    const startDate = emp.activeFrom
-      ? new Date(emp.activeFrom).toLocaleDateString("en-US", { year:"numeric", month:"long", day:"numeric" })
-      : "their start date";
-    const PAY_LABELS = { ARS:"ARS", Crypto:"Crypto", Canada:"Canada USD", Healthcare:"Healthcare USD", Allowance:"Allowance USD", Cash2:"Cash 2 USD", Bonus:"Bonus USD", Monotributo:"Monotributo" };
+    const startDate = emp.activeFrom ? fDateLong(emp.activeFrom) : "their start date";
+    const PAY_LABELS = { ARS:"ARS", Crypto:"USDT", Canada:"Canada USD", Healthcare:"Healthcare USD", Allowance:"Allowance USD", Cash2:"Cash 2 USD", Bonus:"Bonus USD", Mono:"Monotributo BA" };
     const salaryParts = emp.payments ? Object.entries(emp.payments).filter(([,v]) => v > 0).map(([k,v]) => {
       const isUSD = k !== "ARS" && k !== "Monotributo";
       return (PAY_LABELS[k] || k) + ": " + (isUSD ? "U$" + v : "$" + Math.round(v).toLocaleString("es-AR"));
@@ -4156,25 +4222,31 @@ export default function App() {
       return (PAY_LABELS[k] || k) + ": $" + Math.round(v).toLocaleString("es-AR");
     }).join(" + ") : "—";
     const monthYear = emp._monthYear || new Date().toLocaleDateString("en-US", { year:"numeric", month:"long" });
+    const firstName = (emp.name || "").split(" ")[0].toLowerCase();
+    const himHer = firstName.endsWith("a") ? "her" : "him";
     const cash2Amount = emp.payments && emp.payments.Cash2 ? Math.round(emp.payments.Cash2).toLocaleString("es-AR") : "—";
-    const nameVal     = asHtml ? `<strong>${emp.name || "—"}</strong>` : (emp.name || "—");
-    const dateVal     = asHtml ? `<strong>${startDate.toUpperCase()}</strong>` : startDate;
-    const monthVal    = asHtml ? `<strong>${monthYear.toUpperCase()}</strong>` : monthYear;
+    const b = (v) => asHtml ? `<strong>${v}</strong>` : v;
+    const nameVal  = b((emp.name || "—").toUpperCase());
+    const dateVal  = asHtml ? `<strong>${startDate.toUpperCase()}</strong>` : startDate;
+    const monthVal = asHtml ? `<strong>${monthYear.toUpperCase()}</strong>` : monthYear;
     return tmpl
       .replace(/\{name\}/g, nameVal)
       .replace(/\{startDate\}/g, dateVal)
-      .replace(/\{dni\}/g, emp.dni || "—")
-      .replace(/\{address\}/g, emp.address || "—")
-      .replace(/\{personalEmail\}/g, emp.personalEmail || "—")
-      .replace(/\{area\}/g, emp.area || "—")
-      .replace(/\{team\}/g, emp.team || "—")
-      .replace(/\{salary\}/g, salaryParts)
-      .replace(/\{arsNet\}/g, arsOnlyParts)
+      .replace(/\{dni\}/g, b(emp.dni || "—"))
+      .replace(/\{address\}/g, b(emp.address || "—"))
+      .replace(/\{personalEmail\}/g, b(emp.personalEmail || "—"))
+      .replace(/\{area\}/g, b(emp.area || "—"))
+      .replace(/\{team\}/g, b(emp.team || "—"))
+      .replace(/\{salary\}/g, b(salaryParts))
+      .replace(/\{arsNet\}/g, b(arsOnlyParts))
       .replace(/\{monthYear\}/g, monthVal)
-      .replace(/\{cash2Amount\}/g, cash2Amount)
-      .replace(/\{bonusAmount\}/g, emp.payments && emp.payments.Bonus ? Math.round(emp.payments.Bonus).toLocaleString("es-AR") : "—")
-      .replace(/\{cryptoAmount\}/g, emp.payments && emp.payments.Crypto ? Math.round(emp.payments.Crypto).toLocaleString("es-AR") : "—")
-      .replace(/\{changeDirection\}/g, emp._changeDirection || "updated");
+      .replace(/\{cash2Amount\}/g, b(cash2Amount))
+      .replace(/\{bonusAmount\}/g, b(emp.payments && emp.payments.Bonus ? Math.round(emp.payments.Bonus).toLocaleString("es-AR") : "—"))
+      .replace(/\{cryptoAmount\}/g, b(emp.payments && emp.payments.Crypto ? Math.round(emp.payments.Crypto).toLocaleString("es-AR") : "—"))
+      .replace(/\{changeDirection\}/g, emp._changeDirection || "updated")
+      .replace(/\{himHer\}/g, himHer)
+      .replace(/\{hisHer\}/g, firstName.endsWith("a") ? "her" : "his")
+      .replace(/\{endDate\}/g, emp.activeTo ? fDateLong(emp.activeTo) : "—");
   }
 
   function openGmailDraft(tmplKey, emp) {
@@ -4200,12 +4272,20 @@ export default function App() {
   }
 
   function saveEmployee(emp) {
+    try { _saveEmployee(emp); } catch(err) { alert("Error al guardar: " + err.message + "\n" + err.stack); }
+  }
+  function _saveEmployee(emp) {
     const isNew = !emp.id;
     if (emp.id) {
       // Detect Cash2 change
       const existing = employees.find(e => e.id === emp.id);
       const now = new Date();
-      const monthYear = now.toLocaleDateString("en-US", { year:"numeric", month:"long" });
+      const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+      const monthYear = nextMonth.toLocaleDateString("en-US", { year:"numeric", month:"long" });
+      // Detect resignation (activeTo added)
+      if (emp.activeTo && (!existing || !existing.activeTo)) {
+        openGmailDraft("resignation", emp);
+      }
       const oldCash2 = existing && existing.payments ? (existing.payments.Cash2 || 0) : 0;
       const newCash2 = emp.payments ? (emp.payments.Cash2 || 0) : 0;
       if (newCash2 !== oldCash2 && newCash2 > 0) {
@@ -4219,26 +4299,57 @@ export default function App() {
       const lastSnap2 = existing && existing.history.length > 0 ? existing.history[existing.history.length - 1] : null;
       const oldCrypto = lastSnap2?.payments?.Crypto || 0;
       const newCrypto = emp.payments ? (emp.payments.Crypto || 0) : 0;
+      const oldCanada = lastSnap2?.payments?.Canada || 0;
+      const newCanada = emp.payments ? (emp.payments.Canada || 0) : 0;
       if (newCrypto !== oldCrypto && newCrypto > 0) {
         openGmailDraft("cryptoChange", { ...emp, _monthYear: monthYear, _changeDirection: newCrypto > oldCrypto ? "increased" : "decreased" });
+      }
+      if (oldCrypto > 0 && newCrypto === 0 && newCanada > 0 && oldCanada === 0) {
+        openGmailDraft("cryptoToCanada", { ...emp, _monthYear: monthYear });
+      }
+      // Detect trunk change (placeholder — draft to be defined)
+      const TRUNKS = ["Crypto","Canada","Mono","ARS"];
+      const oldTrunk = TRUNKS.find(t => (lastSnap2?.payments?.[t] || 0) > 0) || null;
+      const newTrunk = TRUNKS.find(t => (emp.payments?.[t] || 0) > 0) || null;
+      if (oldTrunk && newTrunk && oldTrunk !== newTrunk) {
+        showToast("⚠️ Troncal cambiado de " + oldTrunk + " → " + newTrunk + " (draft pendiente de configurar)");
       }
       setEmployees(p => p.map(e => {
         if (e.id !== emp.id) return e;
         const existing = employees.find(ex => ex.id === emp.id);
         const lastSnap = existing && existing.history.length > 0 ? existing.history[existing.history.length - 1] : null;
-        const cleanPayments = { ...(emp.payments || {}) };
-        const lastPayments = lastSnap?.payments || {};
+        // Strip zero-value keys so {Canada:1500, Crypto:0} == {Canada:1500}
+        const stripZeros = o => Object.fromEntries(Object.entries(o || {}).filter(([,v]) => v > 0));
+        const cleanPayments = stripZeros(emp.payments);
+        const lastPayments = stripZeros(lastSnap?.payments);
         const sortedStr = o => JSON.stringify(Object.fromEntries(Object.entries(o).sort()));
         const paymentsChanged = sortedStr(lastPayments) !== sortedStr(cleanPayments);
         const rankChanged = lastSnap?.rank !== emp.rank;
         let newHistory = e.history.length > 0 ? [...e.history] : [];
+        const _nd = new Date();
+        _nd.setDate(1);
+        _nd.setMonth(_nd.getMonth() + 1);
+        const nextMonthKey = _nd.getFullYear() + "-" + String(_nd.getMonth() + 1).padStart(2, "0");
+        const nextMonthFrom = nextMonthKey + "-01";
+        const curMonthKey = new Date().getFullYear() + "-" + String(new Date().getMonth() + 1).padStart(2, "0");
+        // Si el empleado se va este mes, guardar EN el mes actual (no en el siguiente)
+        const leavingThisMonth = emp.activeTo && emp.activeTo.slice(0, 7) <= curMonthKey;
         if (paymentsChanged || rankChanged) {
-          const today = new Date().toISOString().slice(0, 7) + "-01";
-          const alreadyToday = newHistory.length > 0 && newHistory[newHistory.length - 1].from.slice(0, 7) === today.slice(0, 7);
-          if (alreadyToday) {
-            newHistory = newHistory.map((s, i) => i === newHistory.length - 1 ? { ...s, payments: cleanPayments, rank: emp.rank } : s);
+          if (leavingThisMonth) {
+            // Actualizar la última entrada del mes actual o anterior en lugar de crear una de mes siguiente
+            const lastApplicableIdx = newHistory.reduce((acc, s, i) => s.from.slice(0, 7) <= curMonthKey ? i : acc, -1);
+            if (lastApplicableIdx >= 0) {
+              newHistory = newHistory.map((s, i) => i === lastApplicableIdx ? { ...s, payments: cleanPayments, rank: emp.rank } : s);
+            } else {
+              newHistory = [...newHistory, { from: curMonthKey + "-01", rank: emp.rank, payments: cleanPayments, note: "" }];
+            }
           } else {
-            newHistory = [...newHistory, { from: today, rank: emp.rank, payments: cleanPayments, note: "" }];
+            const lastFrom = newHistory.length > 0 ? newHistory[newHistory.length - 1].from.slice(0, 7) : null;
+            if (lastFrom === nextMonthKey) {
+              newHistory = newHistory.map((s, i) => i === newHistory.length - 1 ? { ...s, payments: cleanPayments, rank: emp.rank } : s);
+            } else {
+              newHistory = [...newHistory, { from: nextMonthFrom, rank: emp.rank, payments: cleanPayments, note: "" }];
+            }
           }
         }
         return { ...emp, history: newHistory };
@@ -4246,16 +4357,29 @@ export default function App() {
     } else {
       const newEmp = { ...emp, id: Date.now(), history: [{ from: emp.activeFrom || new Date().toISOString().slice(0, 10), rank: emp.rank, payments: { ...emp.payments }, note: "Ingreso" }] };
       setEmployees(p => [...p, newEmp]);
+      if (!emp.activeFrom) { showToast("⚠️ Empleado guardado sin fecha de inicio — drafts no enviados", "warn"); return; }
       // Auto-send onboarding email by area
       if (emp.area === "SALES SUPPORT") openGmailDraft("salesSupport", emp);
       if (emp.area === "CAD")           openGmailDraft("cad", emp);
       // Auto-send by payment type
       if (emp.payments && emp.payments.Crypto) openGmailDraft("crypto", emp);
-      if (emp.payments && emp.payments.Monotributo) openGmailDraft("monotributo", emp);
-      if (emp.payments && emp.payments.ARS && !emp.payments.Monotributo) openGmailDraft("dependencia", emp);
+      if (emp.payments && emp.payments.Canada) openGmailDraft("canadaNew", emp);
+      if (emp.payments && emp.payments.Mono) openGmailDraft("monotributo", emp);
+      if (emp.payments && emp.payments.ARS && !emp.payments.Mono) openGmailDraft("dependencia", emp);
     }
     showToast(emp.name + " guardado");
     setModal(null);
+  }
+
+  function fireOnboardingDrafts(emp) {
+    if (!emp.activeFrom) { showToast("⚠️ Sin fecha de inicio — drafts no enviados", "warn"); return; }
+    if (emp.area === "SALES SUPPORT") openGmailDraft("salesSupport", emp);
+    if (emp.area === "CAD")           openGmailDraft("cad", emp);
+    if (emp.payments && emp.payments.Crypto) openGmailDraft("crypto", emp);
+    if (emp.payments && emp.payments.Canada) openGmailDraft("canadaNew", emp);
+    if (emp.payments && emp.payments.Mono) openGmailDraft("monotributo", emp);
+    if (emp.payments && emp.payments.ARS && !emp.payments.Mono) openGmailDraft("dependencia", emp);
+    showToast("✉️ Drafts de onboarding enviados para " + emp.name);
   }
 
   const NAV = [["dashboard", "Dashboard", "Dash"], ["nomina", "Nomina", "Nómina"], ["ranking", "Ranking", "Rank"], ["comparar", "Comparar", "Comp."], ["historial", "Historial", "Hist."], ["config", "Config", "Config"]];
@@ -4685,6 +4809,13 @@ export default function App() {
                   )}
                 </div>
                 <button
+                  onClick={() => setShowFuture(v => !v)}
+                  title="Ver próximos ingresos"
+                  className={"shrink-0 px-3 py-2 rounded-lg text-sm font-medium border transition-colors " + (showFuture ? "bg-emerald-100 text-emerald-700 border-emerald-300" : "bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200")}
+                >
+                  {showFuture ? "Futuros ×" : "Futuros"}
+                </button>
+                <button
                   onClick={() => setShowInactive(v => !v)}
                   title="Buscar empleados inactivos"
                   className={"shrink-0 px-3 py-2 rounded-lg text-sm font-medium border transition-colors " + (showInactive ? "bg-red-100 text-red-700 border-red-300" : "bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200")}
@@ -4810,7 +4941,43 @@ export default function App() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {showInactive ? (
+                  {showFuture ? (
+                    futureEmployees.length === 0 ? (
+                      <tr><td colSpan={7} className="text-center py-12 text-gray-400 text-sm">No hay próximos ingresos registrados</td></tr>
+                    ) : futureEmployees.map(emp => (
+                      <tr key={emp.id} className="hover:bg-emerald-50 transition-colors bg-emerald-50/30">
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2.5">
+                            <div className={"w-8 h-8 " + avatarColor(emp.id) + " rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"}>
+                              {initials(emp.name)}
+                            </div>
+                            <div>
+                              <div className="font-medium text-gray-800 tracking-wide">{emp.name}</div>
+                              <div className="text-xs text-gray-400">{emp.team || "—"}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-500">{emp.area || "—"}</td>
+                        <td className="px-4 py-3">
+                          <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-1 rounded-full font-medium">Ingreso: {fDate(emp.activeFrom)}</span>
+                        </td>
+                        <td colSpan={3} />
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex items-center gap-2 justify-end">
+                            <button onClick={() => { if (window.confirm("¿Enviar drafts de onboarding para " + emp.name + "?")) fireOnboardingDrafts(emp); }}
+                              className="text-xs px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-700 hover:bg-emerald-100 font-medium"
+                              title="Enviar emails de onboarding">
+                              ✉️ Emails
+                            </button>
+                            <button onClick={() => setModal({ data: emp, mode: "edit" })}
+                              className="text-xs px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 font-medium">
+                              Editar
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  ) : showInactive ? (
                     inactiveFiltered.length === 0 ? (
                       <tr><td colSpan={7} className="text-center py-12 text-gray-400 text-sm">{search ? `Sin inactivos que coincidan con "${search}"` : "No hay empleados inactivos"}</td></tr>
                     ) : inactiveFiltered.map(emp => (
@@ -4896,6 +5063,7 @@ export default function App() {
                             {emp.payments.Allowance > 0  && <div className="text-xs text-yellow-700 font-mono py-0.5">U$ {emp.payments.Allowance.toLocaleString("es-AR")}</div>}
                             {emp.payments.Cash2 > 0      && <div className="text-xs text-green-700 font-mono py-0.5">U$ {emp.payments.Cash2.toLocaleString("es-AR")}</div>}
                             {emp.payments.Bonus > 0      && <div className="text-xs text-teal-700 font-mono py-0.5">U$ {emp.payments.Bonus.toLocaleString("es-AR")}</div>}
+                            {(() => { const totalUSD = (emp.payments.Crypto||0)+(emp.payments.Canada||0)+(emp.payments.Healthcare||0)+(emp.payments.Allowance||0)+(emp.payments.Cash2||0)+(emp.payments.Bonus||0); return totalUSD > 0 ? <div className="text-xs text-gray-400 font-mono py-0.5 border-t border-gray-100 mt-0.5 pt-1">U$ {totalUSD.toLocaleString("es-AR")}</div> : null; })()}
                           </div>
                         </td>
                         <td className="px-4 py-3 text-right font-bold text-gray-900">{fARS(total)}</td>
@@ -5085,30 +5253,30 @@ export default function App() {
           return (
             <div className="space-y-4">
               {/* Selector panels */}
-              <div className="flex gap-4 items-stretch">
+              <div className="flex flex-col lg:flex-row gap-3 lg:gap-4 items-stretch">
                 <CmpPanel emp={cmpA} search={cmpSearchA} setSearch={setCmpSearchA} setEmp={setCmpA} label="Empleado A" allEmps={activeWithSnap} dolar={dolar} month={month} year={year} />
                 {/* VS divider */}
-                <div className="flex flex-col items-center justify-center shrink-0 gap-2">
-                  <div className="w-px flex-1 bg-gray-200"/>
+                <div className="flex lg:flex-col flex-row items-center justify-center shrink-0 gap-2">
+                  <div className="lg:w-px lg:h-auto lg:flex-1 h-px w-full flex-1 bg-gray-200"/>
                   <div className="w-9 h-9 rounded-full bg-gray-100 border border-gray-200 flex items-center justify-center text-xs font-black text-gray-400">VS</div>
-                  <div className="w-px flex-1 bg-gray-200"/>
+                  <div className="lg:w-px lg:h-auto lg:flex-1 h-px w-full flex-1 bg-gray-200"/>
                 </div>
                 <CmpPanel emp={cmpB} search={cmpSearchB} setSearch={setCmpSearchB} setEmp={setCmpB} label="Empleado B" allEmps={activeWithSnap} dolar={dolar} month={month} year={year} />
               </div>
 
               {/* Comparison result */}
               {cmpA && cmpB && (
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 space-y-4">
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-3 space-y-3">
                   <div className="text-xs font-bold text-gray-500 uppercase tracking-wide">Comparación · {MONTHS[month]} {year}</div>
                   {/* Bar chart */}
-                  <div className="space-y-3">
+                  <div className="space-y-2">
                     {[{emp: cmpA, total: totalA, label: "A"}, {emp: cmpB, total: totalB, label: "B"}].map(({emp, total, label}) => (
                       <div key={emp.id} className="space-y-1">
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="font-semibold text-gray-700 truncate max-w-xs">{emp.name}</span>
-                          <div className="text-right shrink-0 ml-3">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-semibold text-gray-700 truncate">{emp.name}</span>
+                          <div className="text-right shrink-0 ml-2">
                             <span className="font-black text-gray-900">{fARS(total)}</span>
-                            {dolar > 0 && <span className="text-xs text-gray-400 ml-2">{fUSD(total/dolar)}</span>}
+                            {dolar > 0 && <span className="text-gray-400 ml-1">{fUSD(total/dolar)}</span>}
                           </div>
                         </div>
                         <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
@@ -5301,6 +5469,7 @@ export default function App() {
           teams={teams}
           ranks={ranks}
           areas={areas}
+          supervisors={[...new Set(employees.map(e => e.name).filter(Boolean))].sort()}
           onSave={saveEmployee}
           onClose={() => setModal(null)}
         />
@@ -5421,7 +5590,7 @@ function ConfigList({ title, icon, items, onUpdate, usedCount, readOnly }) {
 
 // ── EMPLOYEE MODAL ────────────────────────────────────────────────────────────
 function CmpPanel({ emp, search, setSearch, setEmp, label, allEmps, dolar, month, year }) {
-  const PAY_LABELS = { ARS:'ARS', Crypto:'Crypto USD', Canada:'Canada USD', Healthcare:'Healthcare USD', Allowance:'Allowance USD', Cash2:'Cash 2 USD', Bonus:'Bonus USD', Monotributo:'Monotributo ARS' };
+  const PAY_LABELS = { ARS:'ARS', Crypto:'USDT', Canada:'Canada USD', Healthcare:'Healthcare USD', Allowance:'Allowance USD', Cash2:'Cash 2 USD', Bonus:'Bonus USD', Mono:'Monotributo BA' };
   const types = ['ARS','Crypto','Canada','Healthcare','Allowance','Cash2','Bonus','Monotributo'];
   const results = search.length >= 2
     ? allEmps.filter(e => e.name.toLowerCase().includes(search.toLowerCase())).slice(0, 8)
@@ -5432,69 +5601,66 @@ function CmpPanel({ emp, search, setSearch, setEmp, label, allEmps, dolar, month
   const fARS2 = v => '$' + Math.round(v).toLocaleString('es-AR');
   const fUSD2 = v => 'U$' + v.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   return (
-    <div className="flex-1 min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden flex flex-col">
-      <div className="px-4 py-2 border-b border-gray-100 flex items-center justify-between" style={{background:"#f0faf5"}}>
+    <div className="flex-1 min-w-0 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col">
+      <div className="px-3 py-1.5 border-b border-gray-100 flex items-center justify-between" style={{background:"#f0faf5"}}>
         <span className="text-xs font-bold uppercase tracking-wide" style={{color:"#0a4a3a"}}>{label}</span>
-        {emp && <button onClick={() => { setEmp(null); setSearch(""); }} className="text-xs text-gray-400 hover:text-gray-600 px-2 py-0.5 rounded-lg hover:bg-gray-100">× Cambiar</button>}
+        {emp && <button onClick={() => { setEmp(null); setSearch(""); }} className="text-xs text-gray-400 hover:text-gray-600 px-1.5 py-0.5 rounded hover:bg-gray-100">× Cambiar</button>}
       </div>
       {!emp ? (
-        <div className="p-4 flex-1">
+        <div className="p-3 flex-1">
           <input
-            className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-green-400 mb-3"
+            className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:border-green-400 mb-2"
             placeholder="Buscar por nombre..."
             value={search}
             onChange={e => setSearch(e.target.value)}
             autoComplete="off"
           />
           {results.length > 0 && (
-            <div className="space-y-1">
+            <div className="space-y-0.5">
               {results.map(e => (
                 <div key={e.id} onClick={() => { setEmp(e); setSearch(""); }}
-                  className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-gray-50 cursor-pointer border border-transparent hover:border-gray-200">
-                  <div className={"w-8 h-8 " + avatarColor(e.id) + " rounded-xl flex items-center justify-center text-white text-xs font-bold shrink-0"}>
+                  className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-gray-50 cursor-pointer">
+                  <div className={"w-6 h-6 " + avatarColor(e.id) + " rounded-lg flex items-center justify-center text-white text-xs font-bold shrink-0"}>
                     {initials(e.name)}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-semibold text-gray-800 truncate">{e.name}</div>
-                    <div className="text-xs text-gray-400">{e.rank} · {e.area}</div>
+                    <div className="text-xs font-semibold text-gray-800 truncate">{e.name}</div>
+                    <div className="text-xs text-gray-400 truncate">{e.area}</div>
                   </div>
                 </div>
               ))}
             </div>
           )}
-          {search.length >= 2 && results.length === 0 && <div className="text-sm text-gray-400 text-center py-6">Sin resultados</div>}
-          {search.length < 2 && <div className="text-sm text-gray-300 text-center py-8">Escribí al menos 2 letras</div>}
+          {search.length >= 2 && results.length === 0 && <div className="text-xs text-gray-400 text-center py-4">Sin resultados</div>}
+          {search.length < 2 && <div className="text-xs text-gray-300 text-center py-4">Escribí al menos 2 letras</div>}
         </div>
       ) : (
-        <div className="p-4 flex-1 space-y-4">
-          <div className="flex items-center gap-3">
-            <div className={"w-12 h-12 " + avatarColor(emp.id) + " rounded-2xl flex items-center justify-center text-white text-lg font-bold shrink-0"}>{initials(emp.name)}</div>
+        <div className="p-2.5 flex-1 space-y-2">
+          <div className="flex items-center gap-2">
+            <div className={"w-8 h-8 " + avatarColor(emp.id) + " rounded-lg flex items-center justify-center text-white text-xs font-bold shrink-0"}>{initials(emp.name)}</div>
             <div className="flex-1 min-w-0">
-              <div className="font-black text-gray-900 truncate">{emp.name}</div>
-              <div className="text-xs text-gray-500">{emp.rank}</div>
-              <div className="flex gap-1.5 mt-1 flex-wrap">
-                {emp.area && <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-semibold">{emp.area}</span>}
-                {emp.team && <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{emp.team}</span>}
-              </div>
+              <div className="font-bold text-xs text-gray-900 truncate">{emp.name}</div>
+              <div className="text-xs text-gray-400 truncate">{emp.rank || emp.area}</div>
             </div>
           </div>
-          <div className="rounded-xl p-3 border border-gray-100" style={{background:"#f0faf5"}}>
-            <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">Total · {MONTHS[month]} {year}</div>
-            <div className="text-2xl font-black text-gray-900">{fARS2(total)}</div>
-            {dolar > 0 && <div className="text-sm font-semibold text-gray-500 mt-0.5">{fUSD2(usd)}</div>}
+          <div className="rounded-lg px-2.5 py-1.5 border border-gray-100 overflow-hidden" style={{background:"#f0faf5"}}>
+            <div className="text-lg font-black text-gray-900 break-all leading-tight">{fARS2(total)}</div>
+            {dolar > 0 && <div className="text-xs text-gray-500">{fUSD2(usd)}</div>}
           </div>
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             {types.filter(t => payments[t]).map(t => {
               const isUSD = t !== 'ARS' && t !== 'Monotributo';
               const raw = payments[t];
               const inARS = isUSD ? raw * dolar : raw;
               return (
-                <div key={t} className="flex items-center justify-between text-sm">
-                  <span className="text-gray-500">{PAY_LABELS[t]}</span>
-                  <div className="text-right">
-                    <span className="font-semibold text-gray-800">{isUSD ? fUSD2(raw) : fARS2(raw)}</span>
-                    {isUSD && dolar > 0 && <span className="text-xs text-gray-400 ml-1">({fARS2(inARS)})</span>}
+                <div key={t} className="flex flex-col text-xs">
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-gray-400 truncate">{PAY_LABELS[t]}</span>
+                    <span className="font-medium text-gray-700 break-all text-right">{isUSD ? fUSD2(raw) : fARS2(raw)}</span>
                   </div>
+                  {isUSD && dolar > 0 && (
+                    <div className="text-right text-gray-400">{fARS2(inARS)}</div>
+                  )}
                 </div>
               );
             })}
@@ -5507,8 +5673,8 @@ function CmpPanel({ emp, search, setSearch, setEmp, label, allEmps, dolar, month
 
 function EmailTemplatesConfig({ emailTemplates, setEmailTemplates, fillTemplate }) {
   const [expanded, setExpanded] = React.useState({});
-  const labels = { salesSupport: "Sales Support → Antonella", cad: "CAD → Mariela, Andrea, Silvana", crypto: "Crypto payment → Mary, Eliana, Rob", monotributo: "Monotributo → Ezequiel", dependencia: "Relación de Dependencia → Ezequiel", cash2Change: "Cash 2 change → Ezequiel + Rob", bonusChange: "Bonus change → Ezequiel + Rob", cryptoChange: "Crypto salary change → Mary + Rob" };
-  const colors = { salesSupport: "#7e22ce", cad: "#1d4ed8", crypto: "#b45309", monotributo: "#166534", dependencia: "#15803d", cash2Change: "#0e7490", bonusChange: "#be185d", cryptoChange: "#854d0e" };
+  const labels = { salesSupport: "Sales Support → Antonella", cad: "CAD → Mariela, Andrea, Silvana", crypto: "Crypto payment → Mary, Eliana, Rob", monotributo: "Monotributo → Ezequiel", dependencia: "Relación de Dependencia → Ezequiel", cash2Change: "Cash 2 change → Ezequiel + Rob", bonusChange: "Bonus change → Ezequiel + Rob", cryptoChange: "Crypto salary change → Mary + Rob", canadaNew: "Canada New → Mary + Rob", cryptoToCanada: "USD from Canada → Mary + Rob", resignation: "Resignation → Mary" };
+  const colors = { salesSupport: "#7e22ce", cad: "#1d4ed8", crypto: "#b45309", monotributo: "#166534", dependencia: "#15803d", cash2Change: "#0e7490", bonusChange: "#be185d", cryptoChange: "#854d0e", cryptoToCanada: "#dc2626", resignation: "#991b1b" };
   return (
     <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
       <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-2" style={{background:"#f0faf5"}}>
@@ -5569,9 +5735,60 @@ function EmailTemplatesConfig({ emailTemplates, setEmailTemplates, fillTemplate 
   );
 }
 
-function EmployeeModal({ data, mode, teams, ranks, areas, onSave, onClose }) {
-  const [f, setF] = useState({ ...data, payments: { ...(data.payments || {}) } });
+const TRUNKS = ["Crypto","Canada","Mono","ARS"];
+const TRUNK_LABELS = { Crypto:"USDT", Canada:"Canada USD", Mono:"Monotributo BA", ARS:"Pesos ARS" };
+const TRUNK_COLORS = {
+  Crypto: { sel:"bg-purple-600 text-white border-purple-600", unsel:"bg-white text-purple-700 border-purple-200 hover:bg-purple-50", bg:"bg-purple-50", text:"text-purple-700", border:"border-purple-200" },
+  Canada: { sel:"bg-red-600 text-white border-red-600",       unsel:"bg-white text-red-700 border-red-200 hover:bg-red-50",         bg:"bg-red-50",    text:"text-red-700",    border:"border-red-200"    },
+  Mono:   { sel:"bg-green-600 text-white border-green-600",   unsel:"bg-white text-green-700 border-green-200 hover:bg-green-50",   bg:"bg-green-50",  text:"text-green-700",  border:"border-green-200"  },
+  ARS:    { sel:"bg-blue-600 text-white border-blue-600",     unsel:"bg-white text-blue-700 border-blue-200 hover:bg-blue-50",     bg:"bg-blue-50",   text:"text-blue-700",   border:"border-blue-200"   },
+};
+const ITEMS = [
+  { key:"Healthcare", label:"Healthcare", unit:"USD", color:"pink",   note:"Sigue el troncal", notARS:true },
+  { key:"Allowance",  label:"Allowance",  unit:"USD", color:"yellow", note:"Sigue el troncal", noteARS:"USD Buenos Aires" },
+  { key:"Cash2",      label:"Cash 2",     unit:"USD", color:"green",  note:"Siempre BsAs" },
+  { key:"Bonus",      label:"Bonus",      unit:"USD", color:"teal",   note:"Siempre BsAs" },
+];
+
+function EmployeeModal({ data, mode, teams, ranks, areas, supervisors, onSave, onClose }) {
+  // Initialize payments from history snapshot at today (avoids corrupted top-level payments)
+  const _initPayments = (() => {
+    if (data.history && data.history.length > 0) {
+      const today = new Date().toISOString().slice(0, 10);
+      const sorted = [...data.history].sort((a, b) => a.from.localeCompare(b.from));
+      let snap = sorted[0];
+      for (const s of sorted) { if (s.from <= today) snap = s; }
+      if (snap && Object.values(snap.payments || {}).some(v => v > 0)) return { ...snap.payments };
+    }
+    return { ...(data.payments || {}) };
+  })();
+  const _initRank = (() => {
+    if (data.rank) return data.rank;
+    if (data.history && data.history.length > 0) {
+      const today = new Date().toISOString().slice(0, 10);
+      const sorted = [...data.history].sort((a, b) => a.from.localeCompare(b.from));
+      let snap = sorted[0];
+      for (const s of sorted) { if (s.from <= today) snap = s; }
+      return snap?.rank || "";
+    }
+    return "";
+  })();
+  const [f, setF] = useState({ ...data, rank: _initRank, payments: _initPayments });
+  const [selectedTrunk, setSelectedTrunk] = useState(
+    TRUNKS.find(t => (_initPayments[t] || 0) > 0) || null
+  );
   function setPay(pt, v) { setF(p => ({ ...p, payments: { ...p.payments, [pt]: Number(v) || 0 } })); }
+  function chooseTrunk(t) {
+    setSelectedTrunk(t);
+    setF(p => {
+      const newPayments = { ...p.payments };
+      const oldAmount = TRUNKS.reduce((acc, tr) => tr !== t ? (newPayments[tr] || acc) : acc, 0);
+      TRUNKS.forEach(tr => { if (tr !== t) newPayments[tr] = 0; });
+      if (!newPayments[t]) newPayments[t] = oldAmount;
+      if (t === "ARS") newPayments.Healthcare = 0;
+      return { ...p, payments: newPayments };
+    });
+  }
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col mx-2" style={{maxHeight:"88vh"}}>
@@ -5612,8 +5829,11 @@ function EmployeeModal({ data, mode, teams, ranks, areas, onSave, onClose }) {
           </div>
           <div>
             <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Supervisor</label>
-            <input className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-300"
-              value={f.supervisor || ""} onChange={e => setF(p => ({ ...p, supervisor: e.target.value }))} placeholder="Nombre del supervisor" />
+            <input list="supervisors-list" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-300"
+              value={f.supervisor || ""} onChange={e => setF(p => ({ ...p, supervisor: e.target.value }))} placeholder="Buscar supervisor..." />
+            <datalist id="supervisors-list">
+              {(supervisors || []).map(s => <option key={s} value={s} />)}
+            </datalist>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -5633,23 +5853,48 @@ function EmployeeModal({ data, mode, teams, ranks, areas, onSave, onClose }) {
             </div>
             <div>
               <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Hasta (opcional)</label>
-              <DateInput className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
-                value={f.activeTo || ""} onChange={v => setF(p => ({ ...p, activeTo: v }))} />
+              <div className="flex items-center gap-1">
+                <DateInput className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                  value={f.activeTo || ""} onChange={v => setF(p => ({ ...p, activeTo: v }))} />
+                {f.activeTo && <button type="button" onClick={() => setF(p => ({ ...p, activeTo: "" }))}
+                  className="text-gray-400 hover:text-red-500 text-lg leading-none px-1" title="Borrar fecha de baja">×</button>}
+              </div>
             </div>
           </div>
           <div className="border-t border-gray-100 pt-4">
-            <div className="text-xs font-bold text-gray-400 uppercase mb-3">Montos de pago</div>
+            <div className="text-xs font-bold text-gray-400 uppercase mb-2">Troncal de pago</div>
+            <div className="grid grid-cols-2 gap-2 mb-3">
+              {TRUNKS.map(t => (
+                <button key={t} type="button" onClick={() => chooseTrunk(t)}
+                  className={"px-3 py-2 rounded-lg border text-xs font-bold transition-colors " + (selectedTrunk === t ? TRUNK_COLORS[t].sel : TRUNK_COLORS[t].unsel)}>
+                  {TRUNK_LABELS[t]}
+                </button>
+              ))}
+            </div>
+            {selectedTrunk && (
+              <div className={"flex items-center gap-3 p-2.5 rounded-xl mb-4 " + TRUNK_COLORS[selectedTrunk].bg}>
+                <span className={"flex-1 text-xs font-semibold " + TRUNK_COLORS[selectedTrunk].text}>{TRUNK_LABELS[selectedTrunk]}</span>
+                <input type="number" placeholder="0"
+                  className={"w-32 border " + TRUNK_COLORS[selectedTrunk].border + " rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none"}
+                  value={f.payments[selectedTrunk] || ""} onChange={e => setPay(selectedTrunk, e.target.value)} />
+                <span className={"text-xs opacity-60 w-8 " + TRUNK_COLORS[selectedTrunk].text}>{selectedTrunk === "ARS" || selectedTrunk === "Mono" ? "ARS" : "USD"}</span>
+              </div>
+            )}
+            <div className="text-xs font-bold text-gray-400 uppercase mb-2">Adicionales</div>
             <div className="space-y-2">
-              {PAYMENT_TYPES.map(pt => {
-                const meta = PAYMENT_META[pt];
-                const cc = COLOR[meta.color];
+              {ITEMS.map(item => {
+                if (item.notARS && selectedTrunk === "ARS") return null;
+                const cc = COLOR[item.color] || COLOR.green;
                 return (
-                  <div key={pt} className={"flex items-center gap-3 p-2.5 rounded-xl " + cc.bg}>
-                    <span className={"w-32 text-xs font-semibold " + cc.text}>{meta.label}</span>
+                  <div key={item.key} className={"flex items-center gap-3 p-2.5 rounded-xl " + cc.bg}>
+                    <div className="flex-1 min-w-0">
+                      <span className={"text-xs font-semibold " + cc.text}>{item.label}</span>
+                      <span className="text-xs text-gray-400 ml-1.5">{selectedTrunk === "ARS" && item.noteARS ? item.noteARS : item.note}</span>
+                    </div>
                     <input type="number" placeholder="0"
-                      className={"flex-1 border " + cc.border + " rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none"}
-                      value={f.payments[pt] || ""} onChange={e => setPay(pt, e.target.value)} />
-                    <span className={"text-xs opacity-60 w-8 " + cc.text}>{meta.unit}</span>
+                      className={"w-24 border " + cc.border + " rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none"}
+                      value={f.payments[item.key] || ""} onChange={e => setPay(item.key, e.target.value)} />
+                    <span className={"text-xs opacity-60 w-8 " + cc.text}>{item.unit}</span>
                   </div>
                 );
               })}
@@ -5658,7 +5903,10 @@ function EmployeeModal({ data, mode, teams, ranks, areas, onSave, onClose }) {
         </div>
         <div className="p-4 border-t border-gray-200 flex gap-3 justify-end shrink-0">
           <button onClick={onClose} className="px-4 py-2 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50">Cancelar</button>
-          <button onClick={() => onSave(f)} disabled={!f.name.trim()}
+          {mode === "add" && !f.activeFrom && (
+            <span className="text-xs text-red-500 font-medium self-center">⚠️ Falta fecha de inicio</span>
+          )}
+          <button onClick={() => onSave(f)} disabled={!f.name.trim() || (mode === "add" && !f.activeFrom)}
             className="px-4 py-2 rounded-lg bg-gray-900 text-white text-sm font-bold hover:bg-gray-700 disabled:opacity-40">
             {mode === "edit" ? "Guardar" : "Agregar"}
           </button>
