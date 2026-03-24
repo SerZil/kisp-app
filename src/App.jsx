@@ -4849,14 +4849,15 @@ export default function App() {
                     const grandTotal = activeWithSnap.reduce((s,e) => s+toARS(e.payments,dolar),0);
                     const grandByPt = {};
                     pts.forEach(pt => { grandByPt[pt] = activeWithSnap.reduce((s,e) => s+(e.payments[pt]||0), 0); });
-                    const totalUSD = (grandByPt.Crypto||0)+(grandByPt.Canada||0)+(grandByPt.Healthcare||0)+(grandByPt.Allowance||0)+(grandByPt.Cash2||0)+(grandByPt.Bonus||0);
+                    // Healthcare y Allowance siguen el troncal
+                    const cryptoTotal = activeWithSnap.reduce((s,e) => e.payments.Crypto > 0 ? s+(e.payments.Crypto||0)+(e.payments.Healthcare||0)+(e.payments.Allowance||0) : s, 0);
+                    const canadaTotal = activeWithSnap.reduce((s,e) => e.payments.Canada > 0 ? s+(e.payments.Canada||0)+(e.payments.Healthcare||0)+(e.payments.Allowance||0) : s, 0);
+                    const totalUSD = cryptoTotal + canadaTotal + (grandByPt.Cash2||0) + (grandByPt.Bonus||0);
                     const summaryItems = [
                       { label: "Pesos ARS", val: grandByPt.ARS > 0 ? "$"+Math.round(grandByPt.ARS).toLocaleString("es-AR") : null },
                       { label: "Monotributo BA", val: grandByPt.Mono > 0 ? "$"+Math.round(grandByPt.Mono).toLocaleString("es-AR") : null },
-                      { label: "USDT (Crypto)", val: grandByPt.Crypto > 0 ? "U$"+grandByPt.Crypto.toLocaleString("es-AR") : null },
-                      { label: "Canada USD", val: grandByPt.Canada > 0 ? "U$"+grandByPt.Canada.toLocaleString("es-AR") : null },
-                      { label: "Healthcare", val: grandByPt.Healthcare > 0 ? "U$"+grandByPt.Healthcare.toLocaleString("es-AR") : null },
-                      { label: "Allowance", val: grandByPt.Allowance > 0 ? "U$"+grandByPt.Allowance.toLocaleString("es-AR") : null },
+                      { label: "USDT (Crypto + HC + Allow)", val: cryptoTotal > 0 ? "U$"+cryptoTotal.toLocaleString("es-AR") : null },
+                      { label: "Canada USD (+ HC + Allow)", val: canadaTotal > 0 ? "U$"+canadaTotal.toLocaleString("es-AR") : null },
                       { label: "Cash 2", val: grandByPt.Cash2 > 0 ? "U$"+grandByPt.Cash2.toLocaleString("es-AR") : null },
                       { label: "Bonus", val: grandByPt.Bonus > 0 ? "U$"+grandByPt.Bonus.toLocaleString("es-AR") : null },
                       { label: "Total USD", val: "U$"+totalUSD.toLocaleString("es-AR"), bold: true },
