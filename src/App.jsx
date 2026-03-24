@@ -4127,7 +4127,7 @@ export default function App() {
     if (supervisorFilter !== "All" && e.supervisor !== supervisorFilter) return false;
     if (teamFilter !== "All" && e.team !== teamFilter) return false;
     if (cargoFilter !== "All" && e.rank !== cargoFilter) return false;
-    if (search && !e.name.toLowerCase().includes(search.toLowerCase())) return false;
+    if (search && !e.name.toLowerCase().includes(search.toLowerCase()) && !(e.supervisor||"").toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   }), [activeWithSnap, payFilter, areaFilter, teamFilter, cargoFilter, search]);
 
