@@ -4208,7 +4208,7 @@ export default function App() {
     return ["All", ...base];
   }, [activeWithSnap, areaFilter]);
 
-  function goNominaFilter(pt) { setPayFilter(pt); setTeamFilter("All"); setCargoFilter("All"); setSearch(""); setView("nomina"); }
+  function goNominaFilter(pt) { setPayFilter(pt); setTeamFilter("All"); setCargoFilter("All"); setSearch(""); setShowFuture(false); setShowInactive(false); setView("nomina"); }
   function deactivate(emp) { setEmployees(p => p.map(e => e.id === emp.id ? { ...e, activeTo: key + "-31" } : e)); showToast(emp.name + " dado de baja", "warn"); }
 
   function fillTemplate(tmpl, emp, asHtml = false) {
