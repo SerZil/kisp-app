@@ -3192,30 +3192,42 @@ function DateInput({ value, onChange, className }) {
 
 function Select({ value, onChange, options, placeholder }) {
   const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+  const inputRef = useRef();
   const prevOptions = useRef(options);
   if (prevOptions.current !== options) {
     prevOptions.current = options;
     if (open) setOpen(false);
   }
+  const filtered = options.filter(opt => opt !== "All" && opt.toLowerCase().includes(q.toLowerCase()));
+  function handleOpen() { setOpen(o => !o); setQ(""); setTimeout(() => inputRef.current?.focus(), 50); }
   return (
     <div className="relative">
-      <button type="button" onClick={() => setOpen(o => !o)}
+      <button type="button" onClick={handleOpen}
         className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-left bg-white flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-gray-300">
         <span className={value ? "text-gray-800" : "text-gray-400"}>{value || placeholder}</span>
         <span className="text-gray-400 text-xs ml-2">{open ? "^" : "v"}</span>
       </button>
       {open && (
-        <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-xl max-h-52 overflow-y-auto">
-          <button type="button" onClick={() => { onChange("All"); setOpen(false); }}
-            className={"w-full text-left px-3 py-2 text-sm hover:bg-gray-50 " + (!value ? "bg-gray-50 text-gray-500 font-semibold" : "text-gray-400")}>
-            {placeholder}
-          </button>
-          {options.filter(opt => opt !== "All").map(opt => (
-            <button key={opt} type="button" onClick={() => { onChange(opt); setOpen(false); }}
-              className={"w-full text-left px-3 py-2 text-sm hover:bg-blue-50 " + (value === opt ? "bg-blue-50 text-blue-700 font-semibold" : "text-gray-700")}>
-              {opt}
+        <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-xl">
+          <div className="p-2 border-b border-gray-100">
+            <input ref={inputRef} value={q} onChange={e => setQ(e.target.value)}
+              placeholder="Buscar..." autoComplete="off"
+              className="w-full text-sm px-2 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400" />
+          </div>
+          <div className="max-h-48 overflow-y-auto">
+            <button type="button" onClick={() => { onChange("All"); setOpen(false); setQ(""); }}
+              className={"w-full text-left px-3 py-2 text-sm hover:bg-gray-50 " + (!value ? "bg-gray-50 text-gray-500 font-semibold" : "text-gray-400")}>
+              {placeholder}
             </button>
-          ))}
+            {filtered.map(opt => (
+              <button key={opt} type="button" onClick={() => { onChange(opt); setOpen(false); setQ(""); }}
+                className={"w-full text-left px-3 py-2 text-sm hover:bg-blue-50 " + (value === opt ? "bg-blue-50 text-blue-700 font-semibold" : "text-gray-700")}>
+                {opt}
+              </button>
+            ))}
+            {filtered.length === 0 && <div className="px-3 py-3 text-xs text-gray-400 text-center">Sin resultados</div>}
+          </div>
         </div>
       )}
     </div>
