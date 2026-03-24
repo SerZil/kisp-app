@@ -4129,7 +4129,7 @@ export default function App() {
     if (cargoFilter !== "All" && e.rank !== cargoFilter) return false;
     if (search && !e.name.toLowerCase().includes(search.toLowerCase()) && !(e.supervisor||"").toLowerCase().includes(search.toLowerCase())) return false;
     return true;
-  }), [activeWithSnap, payFilter, areaFilter, teamFilter, cargoFilter, search]);
+  }), [activeWithSnap, payFilter, areaFilter, supervisorFilter, teamFilter, cargoFilter, search]);
 
   const sortedFiltered = useMemo(() => {
     if (!sortField) return filtered;
