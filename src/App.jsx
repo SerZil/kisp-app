@@ -4847,6 +4847,20 @@ export default function App() {
                         </tr>`;
                     }).join("");
                     const grandTotal = activeWithSnap.reduce((s,e) => s+toARS(e.payments,dolar),0);
+                    const grandByPt = {};
+                    pts.forEach(pt => { grandByPt[pt] = activeWithSnap.reduce((s,e) => s+(e.payments[pt]||0), 0); });
+                    const totalUSD = (grandByPt.Crypto||0)+(grandByPt.Canada||0)+(grandByPt.Healthcare||0)+(grandByPt.Allowance||0)+(grandByPt.Cash2||0)+(grandByPt.Bonus||0);
+                    const summaryItems = [
+                      { label: "Pesos ARS", val: grandByPt.ARS > 0 ? "$"+Math.round(grandByPt.ARS).toLocaleString("es-AR") : null },
+                      { label: "Monotributo BA", val: grandByPt.Mono > 0 ? "$"+Math.round(grandByPt.Mono).toLocaleString("es-AR") : null },
+                      { label: "USDT (Crypto)", val: grandByPt.Crypto > 0 ? "U$"+grandByPt.Crypto.toLocaleString("es-AR") : null },
+                      { label: "Canada USD", val: grandByPt.Canada > 0 ? "U$"+grandByPt.Canada.toLocaleString("es-AR") : null },
+                      { label: "Healthcare", val: grandByPt.Healthcare > 0 ? "U$"+grandByPt.Healthcare.toLocaleString("es-AR") : null },
+                      { label: "Allowance", val: grandByPt.Allowance > 0 ? "U$"+grandByPt.Allowance.toLocaleString("es-AR") : null },
+                      { label: "Cash 2", val: grandByPt.Cash2 > 0 ? "U$"+grandByPt.Cash2.toLocaleString("es-AR") : null },
+                      { label: "Bonus", val: grandByPt.Bonus > 0 ? "U$"+grandByPt.Bonus.toLocaleString("es-AR") : null },
+                      { label: "Total USD", val: "U$"+totalUSD.toLocaleString("es-AR"), bold: true },
+                    ].filter(x => x.val);
                     const w = window.open("","_blank");
                     if (!w) { alert("Permitir popups para imprimir"); return; }
                     w.document.write(`<!DOCTYPE html><html><head><meta charset='UTF-8'><style>
@@ -4871,6 +4885,16 @@ export default function App() {
                         </tr></thead>
                         <tbody>${rows}</tbody>
                       </table>
+                      <div style="margin-top:16px;border-top:2px solid #1f2937;padding-top:10px">
+                        <div style="font-size:11px;font-weight:900;margin-bottom:8px;text-transform:uppercase;letter-spacing:1px;color:#374151">Totales por tipo de pago</div>
+                        <div style="display:flex;flex-wrap:wrap;gap:8px">
+                          ${summaryItems.map(x => `
+                            <div style="background:${x.bold ? '#1f2937' : '#f3f4f6'};color:${x.bold ? 'white' : '#111'};border-radius:6px;padding:8px 14px;min-width:120px">
+                              <div style="font-size:9px;color:${x.bold ? '#9ca3af' : '#6b7280'};text-transform:uppercase;margin-bottom:3px">${x.label}</div>
+                              <div style="font-size:14px;font-weight:900">${x.val}</div>
+                            </div>`).join("")}
+                        </div>
+                      </div>
                       <div style="margin-top:12px;text-align:right;font-size:9px;color:#9ca3af">KiSP Nómina · Generado ${new Date().toLocaleDateString("es-AR")}</div>
                     </body></html>`);
                     w.document.close();
