@@ -4847,21 +4847,29 @@ export default function App() {
                         </tr>`;
                     }).join("");
                     const grandTotal = activeWithSnap.reduce((s,e) => s+toARS(e.payments,dolar),0);
-                    const grandByPt = {};
-                    pts.forEach(pt => { grandByPt[pt] = activeWithSnap.reduce((s,e) => s+(e.payments[pt]||0), 0); });
-                    // Healthcare y Allowance siguen el troncal
-                    const cryptoTotal = activeWithSnap.reduce((s,e) => e.payments.Crypto > 0 ? s+(e.payments.Crypto||0)+(e.payments.Healthcare||0)+(e.payments.Allowance||0) : s, 0);
-                    const canadaTotal = activeWithSnap.reduce((s,e) => e.payments.Canada > 0 ? s+(e.payments.Canada||0)+(e.payments.Healthcare||0)+(e.payments.Allowance||0) : s, 0);
-                    const totalUSD = cryptoTotal + canadaTotal + (grandByPt.Cash2||0) + (grandByPt.Bonus||0);
-                    const summaryItems = [
-                      { label: "Pesos ARS", val: grandByPt.ARS > 0 ? "$"+Math.round(grandByPt.ARS).toLocaleString("es-AR") : null },
-                      { label: "Monotributo BA", val: grandByPt.Mono > 0 ? "$"+Math.round(grandByPt.Mono).toLocaleString("es-AR") : null },
-                      { label: "USDT (Crypto + HC + Allow)", val: cryptoTotal > 0 ? "U$"+cryptoTotal.toLocaleString("es-AR") : null },
-                      { label: "Canada USD (+ HC + Allow)", val: canadaTotal > 0 ? "U$"+canadaTotal.toLocaleString("es-AR") : null },
-                      { label: "Cash 2", val: grandByPt.Cash2 > 0 ? "U$"+grandByPt.Cash2.toLocaleString("es-AR") : null },
-                      { label: "Bonus", val: grandByPt.Bonus > 0 ? "U$"+grandByPt.Bonus.toLocaleString("es-AR") : null },
-                      { label: "Total USD", val: "U$"+totalUSD.toLocaleString("es-AR"), bold: true },
-                    ].filter(x => x.val);
+                    const flujoCrypto = (payTotals.Crypto?.rawSum||0)+(payTotals.HealthCrypto?.rawSum||0)+(payTotals.AllowanceCrypto?.rawSum||0);
+                    const flujoCanada = (payTotals.Canada?.rawSum||0)+(payTotals.HealthCanada?.rawSum||0)+(payTotals.AllowanceCanada?.rawSum||0);
+                    const monoUSD = dolar > 0 ? (payTotals.Mono?.rawSum||0)/dolar : 0;
+                    const flujoBsAs = (payTotals.Cash2?.rawSum||0)+(payTotals.Bonus?.rawSum||0)+(payTotals.AllowanceBsAs?.rawSum||0)+monoUSD;
+                    const totalFlujoUSD = flujoCrypto + flujoCanada + flujoBsAs;
+                    const flujos = [
+                      { label:"Crypto", color:"#7c3aed", detail:[
+                        { label:"Salarios USDT", val:payTotals.Crypto?.rawSum||0 },
+                        { label:"Healthcare", val:payTotals.HealthCrypto?.rawSum||0 },
+                        { label:"Allowance", val:payTotals.AllowanceCrypto?.rawSum||0 },
+                      ], total: flujoCrypto },
+                      { label:"Canada USD", color:"#b91c1c", detail:[
+                        { label:"Salarios Canada", val:payTotals.Canada?.rawSum||0 },
+                        { label:"Healthcare", val:payTotals.HealthCanada?.rawSum||0 },
+                        { label:"Allowance", val:payTotals.AllowanceCanada?.rawSum||0 },
+                      ], total: flujoCanada },
+                      { label:"Buenos Aires", color:"#0369a1", detail:[
+                        { label:"Cash 2", val:payTotals.Cash2?.rawSum||0 },
+                        { label:"Bonus", val:payTotals.Bonus?.rawSum||0 },
+                        { label:"Allowance", val:payTotals.AllowanceBsAs?.rawSum||0 },
+                        { label:"Monotributo (equiv USD)", val:monoUSD },
+                      ], total: flujoBsAs },
+                    ];
                     const w = window.open("","_blank");
                     if (!w) { alert("Permitir popups para imprimir"); return; }
                     w.document.write(`<!DOCTYPE html><html><head><meta charset='UTF-8'><style>
@@ -4887,13 +4895,23 @@ export default function App() {
                         <tbody>${rows}</tbody>
                       </table>
                       <div style="margin-top:16px;border-top:2px solid #1f2937;padding-top:10px">
-                        <div style="font-size:11px;font-weight:900;margin-bottom:8px;text-transform:uppercase;letter-spacing:1px;color:#374151">Totales por tipo de pago</div>
-                        <div style="display:flex;flex-wrap:wrap;gap:8px">
-                          ${summaryItems.map(x => `
-                            <div style="background:${x.bold ? '#1f2937' : '#f3f4f6'};color:${x.bold ? 'white' : '#111'};border-radius:6px;padding:8px 14px;min-width:120px">
-                              <div style="font-size:9px;color:${x.bold ? '#9ca3af' : '#6b7280'};text-transform:uppercase;margin-bottom:3px">${x.label}</div>
-                              <div style="font-size:14px;font-weight:900">${x.val}</div>
+                        <div style="font-size:11px;font-weight:900;margin-bottom:8px;text-transform:uppercase;letter-spacing:1px;color:#374151">Flujos por origen — ${MONTHS[month]} ${year}</div>
+                        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px">
+                          ${flujos.map(f => `
+                            <div style="border:1px solid #e5e7eb;border-radius:6px;padding:10px;border-left:4px solid ${f.color}">
+                              <div style="font-size:12px;font-weight:900;color:${f.color};margin-bottom:6px">${f.label}</div>
+                              ${f.detail.filter(d => d.val > 0).map(d => `
+                                <div style="display:flex;justify-content:space-between;font-size:9px;color:#6b7280;margin-bottom:2px">
+                                  <span>${d.label}</span><span>U$ ${Math.round(d.val).toLocaleString("es-AR")}</span>
+                                </div>`).join("")}
+                              <div style="border-top:1px solid #e5e7eb;margin-top:6px;padding-top:4px;display:flex;justify-content:space-between;font-size:11px;font-weight:900;color:${f.color}">
+                                <span>Total</span><span>U$ ${Math.round(f.total).toLocaleString("es-AR")}</span>
+                              </div>
                             </div>`).join("")}
+                        </div>
+                        <div style="background:#1f2937;color:white;border-radius:6px;padding:8px 14px;display:flex;justify-content:space-between;align-items:center">
+                          <span style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#9ca3af">Total USD nómina</span>
+                          <span style="font-size:16px;font-weight:900">U$ ${Math.round(totalFlujoUSD).toLocaleString("es-AR")}</span>
                         </div>
                       </div>
                       <div style="margin-top:12px;text-align:right;font-size:9px;color:#9ca3af">KiSP Nómina · Generado ${new Date().toLocaleDateString("es-AR")}</div>
