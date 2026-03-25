@@ -4283,17 +4283,17 @@ export default function App() {
     showToast("✉️ Borrador creado en Gmail");
   }
 
-  function saveEmployee(emp) {
-    try { _saveEmployee(emp); } catch(err) { alert("Error al guardar: " + err.message + "\n" + err.stack); }
+  function saveEmployee(emp, applyNextMonth = true) {
+    try { _saveEmployee(emp, applyNextMonth); } catch(err) { alert("Error al guardar: " + err.message + "\n" + err.stack); }
   }
-  function _saveEmployee(emp) {
+  function _saveEmployee(emp, applyNextMonth = true) {
     const isNew = !emp.id;
     if (emp.id) {
       // Detect Cash2 change
       const existing = employees.find(e => e.id === emp.id);
       const now = new Date();
-      const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-      const monthYear = nextMonth.toLocaleDateString("en-US", { year:"numeric", month:"long" });
+      const targetMonth = applyNextMonth ? new Date(now.getFullYear(), now.getMonth() + 1, 1) : new Date(now.getFullYear(), now.getMonth(), 1);
+      const monthYear = targetMonth.toLocaleDateString("en-US", { year:"numeric", month:"long" });
       // Detect resignation (activeTo added)
       if (emp.activeTo && (!existing || !existing.activeTo)) {
         openGmailDraft("resignation", emp);
@@ -4344,6 +4344,8 @@ export default function App() {
         const nextMonthKey = _nd.getFullYear() + "-" + String(_nd.getMonth() + 1).padStart(2, "0");
         const nextMonthFrom = nextMonthKey + "-01";
         const curMonthKey = new Date().getFullYear() + "-" + String(new Date().getMonth() + 1).padStart(2, "0");
+        const targetMonthKey = applyNextMonth ? nextMonthKey : curMonthKey;
+        const targetMonthFrom = targetMonthKey + "-01";
         // Si el empleado se va este mes, guardar EN el mes actual (no en el siguiente)
         const leavingThisMonth = emp.activeTo && emp.activeTo.slice(0, 7) <= curMonthKey;
         if (paymentsChanged || rankChanged) {
@@ -4357,10 +4359,10 @@ export default function App() {
             }
           } else {
             const lastFrom = newHistory.length > 0 ? newHistory[newHistory.length - 1].from.slice(0, 7) : null;
-            if (lastFrom === nextMonthKey) {
+            if (lastFrom === targetMonthKey) {
               newHistory = newHistory.map((s, i) => i === newHistory.length - 1 ? { ...s, payments: cleanPayments, rank: emp.rank } : s);
             } else {
-              newHistory = [...newHistory, { from: nextMonthFrom, rank: emp.rank, payments: cleanPayments, note: "" }];
+              newHistory = [...newHistory, { from: targetMonthFrom, rank: emp.rank, payments: cleanPayments, note: "" }];
             }
           }
         }
@@ -5829,6 +5831,7 @@ function EmployeeModal({ data, mode, teams, ranks, areas, supervisors, onSave, o
     return "";
   })();
   const [f, setF] = useState({ ...data, rank: _initRank, payments: _initPayments });
+  const [applyNextMonth, setApplyNextMonth] = useState(true);
   const [selectedTrunk, setSelectedTrunk] = useState(
     TRUNKS.find(t => (_initPayments[t] || 0) > 0) || null
   );
@@ -5967,12 +5970,27 @@ function EmployeeModal({ data, mode, teams, ranks, areas, supervisors, onSave, o
             </div>
           ) : null;
         })()}
+        {mode === "edit" && (
+          <div className="px-4 py-2 border-t border-gray-100 bg-gray-50 shrink-0 flex items-center justify-between">
+            <span className="text-xs text-gray-400">Aplicar cambio en</span>
+            <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs font-semibold">
+              <button type="button" onClick={() => setApplyNextMonth(false)}
+                className={"px-3 py-1.5 transition-colors " + (!applyNextMonth ? "bg-gray-900 text-white" : "bg-white text-gray-500 hover:bg-gray-50")}>
+                Mes actual
+              </button>
+              <button type="button" onClick={() => setApplyNextMonth(true)}
+                className={"px-3 py-1.5 transition-colors " + (applyNextMonth ? "bg-gray-900 text-white" : "bg-white text-gray-500 hover:bg-gray-50")}>
+                Mes que viene
+              </button>
+            </div>
+          </div>
+        )}
         <div className="p-4 border-t border-gray-200 flex gap-3 justify-end shrink-0">
           <button onClick={onClose} className="px-4 py-2 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50">Cancelar</button>
           {mode === "add" && !f.activeFrom && (
             <span className="text-xs text-red-500 font-medium self-center">⚠️ Falta fecha de inicio</span>
           )}
-          <button onClick={() => onSave(f)} disabled={!f.name.trim() || (mode === "add" && !f.activeFrom)}
+          <button onClick={() => onSave(f, applyNextMonth)} disabled={!f.name.trim() || (mode === "add" && !f.activeFrom)}
             className="px-4 py-2 rounded-lg bg-gray-900 text-white text-sm font-bold hover:bg-gray-700 disabled:opacity-40">
             {mode === "edit" ? "Guardar" : "Agregar"}
           </button>
