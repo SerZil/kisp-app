@@ -3471,12 +3471,15 @@ function PrintPreview({ emp, dolarMap, ipcMap, ranks, chartData, year, month, ra
 
 // ── EMPLOYEE PROFILE MODAL ────────────────────────────────────────────────────
 function toARSProfile(pay, dBlue, dCrypto) {
+  // Healthcare y Allowance siguen la tasa del troncal
+  const trunkIsCrypto = (pay.Crypto || 0) > 0;
+  const dSupp = trunkIsCrypto ? dCrypto : dBlue;
   let t = 0;
   if (pay.ARS)        t += pay.ARS;
   if (pay.Crypto)     t += pay.Crypto     * dCrypto;
   if (pay.Canada)     t += pay.Canada     * dBlue;
-  if (pay.Healthcare) t += pay.Healthcare * dBlue;
-  if (pay.Allowance)  t += pay.Allowance  * dBlue;
+  if (pay.Healthcare) t += pay.Healthcare * dSupp;
+  if (pay.Allowance)  t += pay.Allowance  * dSupp;
   if (pay.Cash2)      t += pay.Cash2      * dBlue;
   if (pay.Bonus)      t += pay.Bonus      * dBlue;
   if (pay.Mono)       t += pay.Mono;
@@ -5809,8 +5812,9 @@ function CmpPanel({ emp, search, setSearch, setEmp, label, allEmps, dolar, dolar
             {types.filter(t => payments[t]).map(t => {
               const isUSD = t !== 'ARS' && t !== 'Monotributo';
               const raw = payments[t];
-              const isCryptoType = t === 'Crypto' || t === 'HealthCrypto' || t === 'AllowanceCrypto';
-              const rateForType = (useNominaCrypto && isCryptoType) ? dolarCrypto : dolar;
+              const trunkIsCrypto = (payments['Crypto'] || 0) > 0;
+              const isCryptoRate = t === 'Crypto' || ((t === 'Healthcare' || t === 'Allowance') && trunkIsCrypto);
+              const rateForType = (useNominaCrypto && isCryptoRate) ? dolarCrypto : dolar;
               const inARS = isUSD ? raw * rateForType : raw;
               return (
                 <div key={t} className="flex flex-col text-xs">
