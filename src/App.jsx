@@ -4815,7 +4815,7 @@ export default function App() {
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-3 space-y-2">
               {/* Row 1: search + nuevo empleado */}
               <div className="flex items-center gap-1.5">
-                <div className="relative w-24 shrink-0">
+                <div className="relative flex-1">
                   <input placeholder="Buscar..." value={search} onChange={e => setSearch(e.target.value)}
                     className="w-full border border-gray-200 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-300 pr-5" />
                   {search && (
@@ -4934,11 +4934,11 @@ export default function App() {
                     w.onload = () => { w.focus(); w.print(); w.close(); };
                     setTimeout(() => { try { w.focus(); w.print(); } catch(e){} }, 800);
                   }}
-                  className="flex-1 bg-blue-600 text-white py-2 rounded-lg font-bold hover:bg-blue-700 text-center text-xl leading-none sm:text-sm">
+                  className="shrink-0 bg-blue-600 text-white px-2 py-2 rounded-lg font-bold hover:bg-blue-700 text-center text-lg leading-none sm:text-sm">
                   <span className="hidden sm:inline">🖨 Reporte</span><span className="sm:hidden">🖨</span>
                 </button>
                 <button onClick={() => setModal({ mode: "add", data: { name: "", team: "", rank: "", area: "", supervisor: "", activeFrom: "", activeTo: "", dni: "", address: "", personalEmail: "", notes: [], payments: {} } })}
-                  className="flex-1 bg-gray-900 text-white py-2 rounded-lg font-bold hover:bg-gray-700 text-center text-xl leading-none sm:text-sm">
+                  className="shrink-0 bg-gray-900 text-white px-2 py-2 rounded-lg font-bold hover:bg-gray-700 text-center text-lg leading-none sm:text-sm">
                   <span className="hidden sm:inline">+ Nuevo</span><span className="sm:hidden">+</span>
                 </button>
               </div>
