@@ -4591,8 +4591,11 @@ export default function App() {
                 </div>
               );
             })()}
-            <div className="flex flex-col items-end">
-              <span className="text-gray-400 text-xs font-medium mb-1">Dolar Blue</span>
+            <div className={"flex flex-col items-end rounded-xl p-2 border transition-all " + (!useNominaCrypto ? "border-emerald-300 bg-emerald-50/60" : "border-transparent bg-transparent")}>
+              <button onClick={() => setUseNominaCrypto(false)} className={"text-xs font-semibold mb-1 flex items-center gap-1 transition-colors " + (!useNominaCrypto ? "text-emerald-700" : "text-gray-400 hover:text-gray-600")}>
+                {!useNominaCrypto && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"/>}
+                Dolar Blue
+              </button>
               {editDolar
                 ? <input type="number" autoFocus className="w-28 border-2 border-blue-400 rounded-lg px-2 py-1 text-sm font-bold text-center focus:outline-none"
                     value={dolar} onChange={e => setDolarMap(p => ({ ...p, [key]: Number(e.target.value) }))} onBlur={() => setEditDolar(false)} />
@@ -4601,8 +4604,11 @@ export default function App() {
                   </button>
               }
             </div>
-            <div className="flex flex-col items-end">
-              <span className="text-gray-400 text-xs font-medium mb-1">Dolar Crypto</span>
+            <div className={"flex flex-col items-end rounded-xl p-2 border transition-all " + (useNominaCrypto ? "border-purple-300 bg-purple-50/60" : "border-transparent bg-transparent")}>
+              <button onClick={() => setUseNominaCrypto(true)} className={"text-xs font-semibold mb-1 flex items-center gap-1 transition-colors " + (useNominaCrypto ? "text-purple-700" : "text-gray-400 hover:text-gray-600")}>
+                {useNominaCrypto && <span className="w-1.5 h-1.5 rounded-full bg-purple-500 inline-block"/>}
+                Dolar Crypto
+              </button>
               {editDolarCrypto
                 ? <input type="number" autoFocus className="w-28 border-2 border-purple-400 rounded-lg px-2 py-1 text-sm font-bold text-center focus:outline-none"
                     value={dolarCrypto || ""} onChange={e => setDolarCryptoMap(p => ({ ...p, [key]: Number(e.target.value) }))} onBlur={() => setEditDolarCrypto(false)} />
@@ -5028,18 +5034,6 @@ export default function App() {
                   className="shrink-0 bg-gray-900 text-white px-2 py-2 rounded-lg font-bold hover:bg-gray-700 text-center text-lg leading-none sm:text-sm">
                   <span className="hidden sm:inline">+ Nuevo</span><span className="sm:hidden">+</span>
                 </button>
-              </div>
-              {/* Row 1b: Blue/Crypto toggle */}
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-400">Dólar para totales ARS:</span>
-                <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs font-semibold">
-                  <button type="button" onClick={() => setUseNominaCrypto(false)}
-                    className={"px-3 py-1.5 transition-colors " + (!useNominaCrypto ? "bg-blue-600 text-white" : "bg-white text-gray-400 hover:bg-gray-50")}>Blue</button>
-                  <button type="button" onClick={() => setUseNominaCrypto(true)}
-                    className={"px-3 py-1.5 transition-colors " + (useNominaCrypto ? "bg-purple-600 text-white" : "bg-white text-gray-400 hover:bg-gray-50")}>Crypto</button>
-                </div>
-                {useNominaCrypto && dolarCrypto > 0 && <span className="text-xs text-purple-600 font-semibold">$ {dolarCrypto.toLocaleString("es-AR")}</span>}
-                {!useNominaCrypto && dolar > 0 && <span className="text-xs text-blue-600 font-semibold">$ {dolar.toLocaleString("es-AR")}</span>}
               </div>
               {/* Row 2: filters */}
               <div className="flex items-center gap-2 flex-wrap">
