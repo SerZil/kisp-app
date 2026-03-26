@@ -4046,6 +4046,27 @@ export default function App() {
       } catch (e) {
         console.log("No se pudo obtener dolar cripto:", e);
       }
+      // Cargar historico cripto
+      try {
+        const res = await fetch("https://api.argentinadatos.com/v1/cotizaciones/dolares/cripto", { redirect: "follow" });
+        if (res.ok) {
+          const data = await res.json();
+          // Agrupar por mes y promediar
+          const byMonth = {};
+          data.forEach(d => {
+            const k = d.fecha.slice(0, 7).replace("-", "-").slice(0, 4) + "-" + d.fecha.slice(5, 7);
+            if (!byMonth[k]) byMonth[k] = [];
+            byMonth[k].push(d.compra);
+          });
+          const monthlyAvg = {};
+          Object.entries(byMonth).forEach(([k, vals]) => {
+            monthlyAvg[k] = Math.round(vals.reduce((s, v) => s + v, 0) / vals.length);
+          });
+          setDolarCryptoMap(prev => ({ ...monthlyAvg, ...prev }));
+        }
+      } catch (e) {
+        console.log("No se pudo obtener historico cripto:", e);
+      }
     }
 
     async function loadFromStorage() {
@@ -4522,14 +4543,18 @@ export default function App() {
             </div>
           </div>
           <div className="flex items-end gap-3 shrink-0">
-            {ipcMap[key] != null && (
-              <div className="flex flex-col items-end">
-                <span className="text-gray-400 text-xs font-medium mb-1">IPC INDEC</span>
-                <span className="bg-orange-50 border border-orange-300 text-orange-800 font-bold text-sm px-3 py-1 rounded-lg">
-                  {ipcMap[key] > 0 ? "+" : ""}{ipcMap[key].toFixed(1)}%
-                </span>
-              </div>
-            )}
+            {(() => {
+              const curKey = mkey(new Date().getFullYear(), new Date().getMonth());
+              const isCurrentMonth = key === curKey;
+              if (ipcMap[key] != null || isCurrentMonth) return (
+                <div className="flex flex-col items-end">
+                  <span className="text-gray-400 text-xs font-medium mb-1">IPC INDEC</span>
+                  <span className="bg-orange-50 border border-orange-300 text-orange-800 font-bold text-sm px-3 py-1 rounded-lg">
+                    {isCurrentMonth && ipcMap[key] == null ? "—" : (ipcMap[key] > 0 ? "+" : "") + ipcMap[key].toFixed(1) + "%"}
+                  </span>
+                </div>
+              );
+            })()}
             <div className="flex flex-col items-end">
               <span className="text-gray-400 text-xs font-medium mb-1">Dolar Blue</span>
               {editDolar
