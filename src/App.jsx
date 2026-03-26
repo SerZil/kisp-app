@@ -3992,6 +3992,7 @@ export default function App() {
   const [editDolar, setEditDolar] = useState(false);
   const [dolarCryptoMap, setDolarCryptoMap] = useState({});
   const [editDolarCrypto, setEditDolarCrypto] = useState(false);
+  const [useNominaCrypto, setUseNominaCrypto] = useState(false);
   const [modal, setModal]         = useState(null);
   const [profileEmp, setProfileEmp] = useState(null);
   const [printData, setPrintData] = useState(null);
@@ -4213,16 +4214,18 @@ export default function App() {
     return true;
   }), [activeWithSnap, payFilter, areaFilter, supervisorFilter, teamFilter, cargoFilter, search]);
 
+  const arsNomina = (pay) => useNominaCrypto ? toARSProfile(pay, dolar, dolarCrypto) : toARS(pay, dolar);
+
   const sortedFiltered = useMemo(() => {
     if (!sortField) return filtered;
     return [...filtered].sort((a, b) => {
-      if (sortField === "total_asc")  return toARS(a.payments, dolar) - toARS(b.payments, dolar);
-      if (sortField === "total_desc") return toARS(b.payments, dolar) - toARS(a.payments, dolar);
+      if (sortField === "total_asc")  return arsNomina(a.payments) - arsNomina(b.payments);
+      if (sortField === "total_desc") return arsNomina(b.payments) - arsNomina(a.payments);
       if (sortField === "name_asc")   return a.name.localeCompare(b.name);
       if (sortField === "name_desc")  return b.name.localeCompare(a.name);
       return 0;
     });
-  }, [filtered, sortField, dolar]);
+  }, [filtered, sortField, dolar, dolarCrypto, useNominaCrypto]);
 
   const totalNomina   = useMemo(() => activeWithSnap.reduce((s, e) => s + toARS(e.payments, dolar), 0), [activeWithSnap, dolar]);
   const totalCosto    = useMemo(() => activeWithSnap.reduce((s, e) => {
@@ -4236,7 +4239,7 @@ export default function App() {
     if (p.Bonus)      t += p.Bonus      * dolar;
     return s + t;
   }, 0), [activeWithSnap, dolar, cargaSocial]);
-  const filteredTotal = useMemo(() => filtered.reduce((s, e) => s + toARS(e.payments, dolar), 0), [filtered, dolar]);
+  const filteredTotal = useMemo(() => filtered.reduce((s, e) => s + arsNomina(e.payments), 0), [filtered, dolar, dolarCrypto, useNominaCrypto]);
 
   const payTotals = useMemo(() => {
     const t = {};
@@ -5026,6 +5029,18 @@ export default function App() {
                   <span className="hidden sm:inline">+ Nuevo</span><span className="sm:hidden">+</span>
                 </button>
               </div>
+              {/* Row 1b: Blue/Crypto toggle */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-400">Dólar para totales ARS:</span>
+                <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs font-semibold">
+                  <button type="button" onClick={() => setUseNominaCrypto(false)}
+                    className={"px-3 py-1.5 transition-colors " + (!useNominaCrypto ? "bg-blue-600 text-white" : "bg-white text-gray-400 hover:bg-gray-50")}>Blue</button>
+                  <button type="button" onClick={() => setUseNominaCrypto(true)}
+                    className={"px-3 py-1.5 transition-colors " + (useNominaCrypto ? "bg-purple-600 text-white" : "bg-white text-gray-400 hover:bg-gray-50")}>Crypto</button>
+                </div>
+                {useNominaCrypto && dolarCrypto > 0 && <span className="text-xs text-purple-600 font-semibold">$ {dolarCrypto.toLocaleString("es-AR")}</span>}
+                {!useNominaCrypto && dolar > 0 && <span className="text-xs text-blue-600 font-semibold">$ {dolar.toLocaleString("es-AR")}</span>}
+              </div>
               {/* Row 2: filters */}
               <div className="flex items-center gap-2 flex-wrap">
                 <div className="min-w-28 flex-1">
@@ -5154,7 +5169,7 @@ export default function App() {
                     <tr><td colSpan={7} className="text-center py-12 text-gray-400 text-sm">No hay empleados en {MONTHS[month]} {year}</td></tr>
                   )}
                   {sortedFiltered.map(emp => {
-                    const total = toARS(emp.payments, dolar);
+                    const total = arsNomina(emp.payments);
                     const empFull = employees.find(e => e.id === emp.id) || emp;
                     const snapCount = empFull.history ? empFull.history.length : 0;
                     return (
@@ -5385,8 +5400,8 @@ export default function App() {
         {/* ── COMPARAR ── */}
         {view === "comparar" && (() => {
           // Difference bar
-          const totalA = cmpA ? toARS(cmpA.payments, dolar) : 0;
-          const totalB = cmpB ? toARS(cmpB.payments, dolar) : 0;
+          const totalA = cmpA ? arsNomina(cmpA.payments) : 0;
+          const totalB = cmpB ? arsNomina(cmpB.payments) : 0;
           const maxT = Math.max(totalA, totalB, 1);
           const diff = totalA - totalB;
           const diffUSD = dolar > 0 ? diff / dolar : 0;
@@ -5395,14 +5410,14 @@ export default function App() {
             <div className="space-y-4">
               {/* Selector panels */}
               <div className="flex flex-col lg:flex-row gap-3 lg:gap-4 items-stretch">
-                <CmpPanel emp={cmpA} search={cmpSearchA} setSearch={setCmpSearchA} setEmp={setCmpA} label="Empleado A" allEmps={activeWithSnap} dolar={dolar} month={month} year={year} />
+                <CmpPanel emp={cmpA} search={cmpSearchA} setSearch={setCmpSearchA} setEmp={setCmpA} label="Empleado A" allEmps={activeWithSnap} dolar={dolar} dolarCrypto={dolarCrypto} useNominaCrypto={useNominaCrypto} month={month} year={year} />
                 {/* VS divider */}
                 <div className="flex lg:flex-col flex-row items-center justify-center shrink-0 gap-2">
                   <div className="lg:w-px lg:h-auto lg:flex-1 h-px w-full flex-1 bg-gray-200"/>
                   <div className="w-9 h-9 rounded-full bg-gray-100 border border-gray-200 flex items-center justify-center text-xs font-black text-gray-400">VS</div>
                   <div className="lg:w-px lg:h-auto lg:flex-1 h-px w-full flex-1 bg-gray-200"/>
                 </div>
-                <CmpPanel emp={cmpB} search={cmpSearchB} setSearch={setCmpSearchB} setEmp={setCmpB} label="Empleado B" allEmps={activeWithSnap} dolar={dolar} month={month} year={year} />
+                <CmpPanel emp={cmpB} search={cmpSearchB} setSearch={setCmpSearchB} setEmp={setCmpB} label="Empleado B" allEmps={activeWithSnap} dolar={dolar} dolarCrypto={dolarCrypto} useNominaCrypto={useNominaCrypto} month={month} year={year} />
               </div>
 
               {/* Comparison result */}
@@ -5731,13 +5746,13 @@ function ConfigList({ title, icon, items, onUpdate, usedCount, readOnly }) {
 }
 
 // ── EMPLOYEE MODAL ────────────────────────────────────────────────────────────
-function CmpPanel({ emp, search, setSearch, setEmp, label, allEmps, dolar, month, year }) {
+function CmpPanel({ emp, search, setSearch, setEmp, label, allEmps, dolar, dolarCrypto, useNominaCrypto, month, year }) {
   const PAY_LABELS = { ARS:'ARS', Crypto:'USDT', Canada:'Canada USD', Healthcare:'Healthcare USD', Allowance:'Allowance USD', Cash2:'Cash 2 USD', Bonus:'Bonus USD', Mono:'Monotributo BA' };
   const types = ['ARS','Crypto','Canada','Healthcare','Allowance','Cash2','Bonus','Monotributo'];
   const results = search.length >= 2
     ? allEmps.filter(e => e.name.toLowerCase().includes(search.toLowerCase())).slice(0, 8)
     : [];
-  const total = emp ? toARS(emp.payments, dolar) : 0;
+  const total = emp ? (useNominaCrypto ? toARSProfile(emp.payments, dolar, dolarCrypto) : toARS(emp.payments, dolar)) : 0;
   const usd   = dolar > 0 && total > 0 ? total / dolar : 0;
   const payments = emp ? emp.payments : {};
   const fARS2 = v => '$' + Math.round(v).toLocaleString('es-AR');
@@ -5793,7 +5808,9 @@ function CmpPanel({ emp, search, setSearch, setEmp, label, allEmps, dolar, month
             {types.filter(t => payments[t]).map(t => {
               const isUSD = t !== 'ARS' && t !== 'Monotributo';
               const raw = payments[t];
-              const inARS = isUSD ? raw * dolar : raw;
+              const isCryptoType = t === 'Crypto' || t === 'HealthCrypto' || t === 'AllowanceCrypto';
+              const rateForType = (useNominaCrypto && isCryptoType) ? dolarCrypto : dolar;
+              const inARS = isUSD ? raw * rateForType : raw;
               return (
                 <div key={t} className="flex flex-col text-xs">
                   <div className="flex items-center justify-between gap-1">
