@@ -3466,8 +3466,22 @@ function PrintPreview({ emp, dolarMap, ipcMap, ranks, chartData, year, month, ra
 }
 
 // ── EMPLOYEE PROFILE MODAL ────────────────────────────────────────────────────
-function EmployeeProfile({ emp, dolarMap, ipcMap, ranks, onClose, onSaveHistory, onSaveNotes, onPrint }) {
+function toARSProfile(pay, dBlue, dCrypto) {
+  let t = 0;
+  if (pay.ARS)        t += pay.ARS;
+  if (pay.Crypto)     t += pay.Crypto     * dCrypto;
+  if (pay.Canada)     t += pay.Canada     * dBlue;
+  if (pay.Healthcare) t += pay.Healthcare * dBlue;
+  if (pay.Allowance)  t += pay.Allowance  * dBlue;
+  if (pay.Cash2)      t += pay.Cash2      * dBlue;
+  if (pay.Bonus)      t += pay.Bonus      * dBlue;
+  if (pay.Mono)       t += pay.Mono;
+  return t;
+}
+
+function EmployeeProfile({ emp, dolarMap, dolarCryptoMap, ipcMap, ranks, onClose, onSaveHistory, onSaveNotes, onPrint }) {
   const [addingNote, setAddingNote] = useState(false);
+  const [useCrypto, setUseCrypto] = useState(false);
   const [newNote, setNewNote] = useState({ text: "", reminder: "" });
 
   const notes = useMemo(() => [...(emp.notes || [])].sort((a, b) => b.createdAt.localeCompare(a.createdAt)), [emp.notes]);
@@ -3509,13 +3523,14 @@ function EmployeeProfile({ emp, dolarMap, ipcMap, ranks, onClose, onSaveHistory,
     while (cur <= actualEnd) {
       const y = cur.getFullYear(), m = cur.getMonth();
       const k = mkey(y, m);
-      const d = dolarMap[k] || 0;
+      const dBlue = dolarMap[k] || 0;
+      const dCrypto = dolarCryptoMap[k] || dBlue;
       const snap = snapshotAt(emp, k + "-15");
-      if (snap) pts.push({ label: MONTHS_SHORT[m] + " " + y, key: k, ars: toARS(snap.payments, d) });
+      if (snap) pts.push({ label: MONTHS_SHORT[m] + " " + y, key: k, ars: useCrypto ? toARSProfile(snap.payments, dBlue, dCrypto) : toARS(snap.payments, dBlue) });
       cur = new Date(y, m + 1, 1);
     }
     return pts;
-  }, [emp, dolarMap, rangeFrom, rangeTo]);
+  }, [emp, dolarMap, dolarCryptoMap, rangeFrom, rangeTo, useCrypto]);
 
   const filteredHistory = useMemo(() =>
     sorted.filter(s => s.from.slice(0,7) >= rangeFrom && s.from.slice(0,7) <= rangeTo)
@@ -3528,7 +3543,8 @@ function EmployeeProfile({ emp, dolarMap, ipcMap, ranks, onClose, onSaveHistory,
   const current = sorted[sorted.length - 1];
   const nowKey = mkey(new Date().getFullYear(), new Date().getMonth());
   const currentDolar = dolarMap[nowKey] || 1420;
-  const currentTotal = current ? toARS(current.payments, currentDolar) : 0;
+  const currentDolarCrypto = dolarCryptoMap[nowKey] || currentDolar;
+  const currentTotal = current ? (useCrypto ? toARSProfile(current.payments, currentDolar, currentDolarCrypto) : toARS(current.payments, currentDolar)) : 0;
 
   function deleteSnap(idx) {
     if (sorted.length <= 1) return;
@@ -3554,6 +3570,14 @@ function EmployeeProfile({ emp, dolarMap, ipcMap, ranks, onClose, onSaveHistory,
               {emp.area && <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-semibold">{emp.area}</span>}
               <span className={"px-2 py-0.5 rounded-full text-xs font-medium " + rankColor(current && current.rank, ranks)}>{current && current.rank}</span>
               <span className="text-xs text-gray-400">desde {fDate(emp.activeFrom)}</span>
+              {current?.payments?.Crypto > 0 && (
+                <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs font-semibold ml-1">
+                  <button type="button" onClick={() => setUseCrypto(false)}
+                    className={"px-2 py-0.5 transition-colors " + (!useCrypto ? "bg-blue-600 text-white" : "bg-white text-gray-400 hover:bg-gray-50")}>Blue</button>
+                  <button type="button" onClick={() => setUseCrypto(true)}
+                    className={"px-2 py-0.5 transition-colors " + (useCrypto ? "bg-purple-600 text-white" : "bg-white text-gray-400 hover:bg-gray-50")}>Crypto</button>
+                </div>
+              )}
             </div>
             {(emp.dni || emp.address) && (
               <div className="flex items-center gap-3 mt-1 flex-wrap">
@@ -5546,6 +5570,7 @@ export default function App() {
         <EmployeeProfile
           emp={employees.find(e => e.id === profileEmp.id) || profileEmp}
           dolarMap={dolarMap}
+          dolarCryptoMap={dolarCryptoMap}
           ipcMap={ipcMap}
           ranks={ranks}
           onClose={() => setProfileEmp(null)}
