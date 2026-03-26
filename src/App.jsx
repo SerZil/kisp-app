@@ -3992,7 +3992,8 @@ export default function App() {
   const [editDolar, setEditDolar] = useState(false);
   const [dolarCryptoMap, setDolarCryptoMap] = useState({});
   const [editDolarCrypto, setEditDolarCrypto] = useState(false);
-  const [useNominaCrypto, setUseNominaCrypto] = useState(false);
+  const [useNominaCrypto, setUseNominaCrypto] = useState(() => localStorage.getItem("kisp-use-crypto") === "true");
+  useEffect(() => { localStorage.setItem("kisp-use-crypto", useNominaCrypto); }, [useNominaCrypto]);
   const [modal, setModal]         = useState(null);
   const [profileEmp, setProfileEmp] = useState(null);
   const [printData, setPrintData] = useState(null);
