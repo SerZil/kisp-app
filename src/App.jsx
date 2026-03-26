@@ -4591,31 +4591,36 @@ export default function App() {
                 </div>
               );
             })()}
-            <div className={"flex flex-col items-end rounded-xl p-2 border transition-all " + (!useNominaCrypto ? "border-emerald-300 bg-emerald-50/60" : "border-transparent bg-transparent")}>
-              <button onClick={() => setUseNominaCrypto(false)} className={"text-xs font-semibold mb-1 flex items-center gap-1 transition-colors " + (!useNominaCrypto ? "text-emerald-700" : "text-gray-400 hover:text-gray-600")}>
-                {!useNominaCrypto && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"/>}
-                Dolar Blue
-              </button>
-              {editDolar
-                ? <input type="number" autoFocus className="w-28 border-2 border-blue-400 rounded-lg px-2 py-1 text-sm font-bold text-center focus:outline-none"
-                    value={dolar} onChange={e => setDolarMap(p => ({ ...p, [key]: Number(e.target.value) }))} onBlur={() => setEditDolar(false)} />
-                : <button onClick={() => setEditDolar(true)} className="bg-emerald-50 border border-emerald-300 text-emerald-800 font-bold text-sm px-3 py-1 rounded-lg hover:bg-emerald-100">
-                    ${dolar.toLocaleString("es-AR")} editar
-                  </button>
-              }
-            </div>
-            <div className={"flex flex-col items-end rounded-xl p-2 border transition-all " + (useNominaCrypto ? "border-purple-300 bg-purple-50/60" : "border-transparent bg-transparent")}>
-              <button onClick={() => setUseNominaCrypto(true)} className={"text-xs font-semibold mb-1 flex items-center gap-1 transition-colors " + (useNominaCrypto ? "text-purple-700" : "text-gray-400 hover:text-gray-600")}>
-                {useNominaCrypto && <span className="w-1.5 h-1.5 rounded-full bg-purple-500 inline-block"/>}
-                Dolar Crypto
-              </button>
-              {editDolarCrypto
-                ? <input type="number" autoFocus className="w-28 border-2 border-purple-400 rounded-lg px-2 py-1 text-sm font-bold text-center focus:outline-none"
-                    value={dolarCrypto || ""} onChange={e => setDolarCryptoMap(p => ({ ...p, [key]: Number(e.target.value) }))} onBlur={() => setEditDolarCrypto(false)} />
-                : <button onClick={() => setEditDolarCrypto(true)} className="bg-purple-50 border border-purple-300 text-purple-800 font-bold text-sm px-3 py-1 rounded-lg hover:bg-purple-100">
-                    {dolarCrypto > 0 ? "$" + dolarCrypto.toLocaleString("es-AR") : "—"} editar
-                  </button>
-              }
+            <div className="flex flex-col items-end gap-2">
+              {/* Toggle visible */}
+              <div className="flex rounded-lg border border-gray-200 overflow-hidden shadow-sm text-xs font-bold">
+                <button onClick={() => setUseNominaCrypto(false)}
+                  className={"px-3 py-1.5 transition-colors " + (!useNominaCrypto ? "bg-emerald-600 text-white" : "bg-white text-gray-400 hover:bg-gray-50")}>
+                  Blue
+                </button>
+                <button onClick={() => setUseNominaCrypto(true)}
+                  className={"px-3 py-1.5 transition-colors " + (useNominaCrypto ? "bg-purple-600 text-white" : "bg-white text-gray-400 hover:bg-gray-50")}>
+                  Crypto
+                </button>
+              </div>
+              {/* Valor activo + editar */}
+              <div className="flex items-center gap-2">
+                {!useNominaCrypto ? (
+                  editDolar
+                    ? <input type="number" autoFocus className="w-28 border-2 border-emerald-400 rounded-lg px-2 py-1 text-sm font-bold text-center focus:outline-none"
+                        value={dolar} onChange={e => setDolarMap(p => ({ ...p, [key]: Number(e.target.value) }))} onBlur={() => setEditDolar(false)} />
+                    : <button onClick={() => setEditDolar(true)} className="bg-emerald-50 border border-emerald-300 text-emerald-800 font-bold text-sm px-3 py-1 rounded-lg hover:bg-emerald-100">
+                        ${dolar.toLocaleString("es-AR")} <span className="opacity-60 font-normal">editar</span>
+                      </button>
+                ) : (
+                  editDolarCrypto
+                    ? <input type="number" autoFocus className="w-28 border-2 border-purple-400 rounded-lg px-2 py-1 text-sm font-bold text-center focus:outline-none"
+                        value={dolarCrypto || ""} onChange={e => setDolarCryptoMap(p => ({ ...p, [key]: Number(e.target.value) }))} onBlur={() => setEditDolarCrypto(false)} />
+                    : <button onClick={() => setEditDolarCrypto(true)} className="bg-purple-50 border border-purple-300 text-purple-800 font-bold text-sm px-3 py-1 rounded-lg hover:bg-purple-100">
+                        {dolarCrypto > 0 ? "$" + dolarCrypto.toLocaleString("es-AR") : "—"} <span className="opacity-60 font-normal">editar</span>
+                      </button>
+                )}
+              </div>
             </div>
           </div>
         </div>
