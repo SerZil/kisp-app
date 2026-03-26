@@ -3959,7 +3959,6 @@ export default function App() {
   const [editDolar, setEditDolar] = useState(false);
   const [dolarCryptoMap, setDolarCryptoMap] = useState({});
   const [editDolarCrypto, setEditDolarCrypto] = useState(false);
-  const dolarCrypto = dolarCryptoMap[key] || 0;
   const [modal, setModal]         = useState(null);
   const [profileEmp, setProfileEmp] = useState(null);
   const [printData, setPrintData] = useState(null);
@@ -3967,6 +3966,7 @@ export default function App() {
 
   const key   = mkey(year, month);
   const dolar = dolarMap[key] || 0;
+  const dolarCrypto = dolarCryptoMap[key] || 0;
 
   // ── ANNIVERSARY ALERTS: employees hitting 6m or 1y this month ──
   const anniversaryAlerts = useMemo(() => {
