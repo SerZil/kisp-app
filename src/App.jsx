@@ -4814,29 +4814,27 @@ export default function App() {
             {/* filters bar */}
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-3 space-y-2">
               {/* Row 1: search + nuevo empleado */}
-              <div className="flex items-center gap-2">
-                <div className="relative flex-1">
+              <div className="flex items-center gap-1.5">
+                <div className="relative w-24 shrink-0">
                   <input placeholder="Buscar..." value={search} onChange={e => setSearch(e.target.value)}
-                    className="w-full border border-gray-200 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-300 pr-6" />
+                    className="w-full border border-gray-200 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-300 pr-5" />
                   {search && (
-                    <button onClick={() => setSearch("")} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-lg leading-none">×</button>
+                    <button onClick={() => setSearch("")} className="absolute right-1 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-lg leading-none">×</button>
                   )}
                 </div>
                 <button
                   onClick={() => setShowFuture(v => !v)}
                   title="Ver próximos ingresos"
-                  className={"shrink-0 px-2 sm:px-3 py-2 rounded-lg text-sm font-medium border transition-colors " + (showFuture ? "bg-emerald-100 text-emerald-700 border-emerald-300" : "bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200")}
+                  className={"shrink-0 px-2 py-2 rounded-lg text-xs font-medium border transition-colors " + (showFuture ? "bg-emerald-100 text-emerald-700 border-emerald-300" : "bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200")}
                 >
-                  <span className="hidden sm:inline">{showFuture ? "Futuros ×" : "Futuros"}</span>
-                  <span className="sm:hidden">{showFuture ? "↑×" : "↑"}</span>
+                  {showFuture ? "Futuros ×" : "Futuros"}
                 </button>
                 <button
                   onClick={() => setShowInactive(v => !v)}
                   title="Buscar empleados inactivos"
-                  className={"shrink-0 px-2 sm:px-3 py-2 rounded-lg text-sm font-medium border transition-colors " + (showInactive ? "bg-red-100 text-red-700 border-red-300" : "bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200")}
+                  className={"shrink-0 px-2 py-2 rounded-lg text-xs font-medium border transition-colors " + (showInactive ? "bg-red-100 text-red-700 border-red-300" : "bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200")}
                 >
-                  <span className="hidden sm:inline">{showInactive ? "Inactivos ×" : "Inactivos"}</span>
-                  <span className="sm:hidden">{showInactive ? "↓×" : "↓"}</span>
+                  {showInactive ? "Inactivos ×" : "Inactivos"}
                 </button>
                 <button onClick={() => {
                     const emps = activeWithSnap.slice().sort((a,b) => (a.area||"").localeCompare(b.area||"") || a.name.localeCompare(b.name));
@@ -4936,12 +4934,12 @@ export default function App() {
                     w.onload = () => { w.focus(); w.print(); w.close(); };
                     setTimeout(() => { try { w.focus(); w.print(); } catch(e){} }, 800);
                   }}
-                  className="bg-blue-600 text-white px-2 sm:px-3 py-2 rounded-lg font-bold hover:bg-blue-700 shrink-0">
-                  <span className="hidden sm:inline text-sm">🖨 Reporte</span><span className="sm:hidden text-xl leading-none">🖨</span>
+                  className="flex-1 bg-blue-600 text-white py-2 rounded-lg font-bold hover:bg-blue-700 text-center text-xl leading-none sm:text-sm">
+                  <span className="hidden sm:inline">🖨 Reporte</span><span className="sm:hidden">🖨</span>
                 </button>
                 <button onClick={() => setModal({ mode: "add", data: { name: "", team: "", rank: "", area: "", supervisor: "", activeFrom: "", activeTo: "", dni: "", address: "", personalEmail: "", notes: [], payments: {} } })}
-                  className="bg-gray-900 text-white px-2 sm:px-3 py-2 rounded-lg font-bold hover:bg-gray-700 shrink-0">
-                  <span className="hidden sm:inline text-sm">+ Nuevo</span><span className="sm:hidden text-xl leading-none">+</span>
+                  className="flex-1 bg-gray-900 text-white py-2 rounded-lg font-bold hover:bg-gray-700 text-center text-xl leading-none sm:text-sm">
+                  <span className="hidden sm:inline">+ Nuevo</span><span className="sm:hidden">+</span>
                 </button>
               </div>
               {/* Row 2: filters */}
