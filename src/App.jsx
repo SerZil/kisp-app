@@ -3957,6 +3957,9 @@ export default function App() {
   const [rankTeamFilter, setRankTeamFilter] = useState("All");
   const [rankCargoFilter, setRankCargoFilter] = useState("All");
   const [editDolar, setEditDolar] = useState(false);
+  const [dolarCryptoMap, setDolarCryptoMap] = useState({});
+  const [editDolarCrypto, setEditDolarCrypto] = useState(false);
+  const dolarCrypto = dolarCryptoMap[key] || 0;
   const [modal, setModal]         = useState(null);
   const [profileEmp, setProfileEmp] = useState(null);
   const [printData, setPrintData] = useState(null);
@@ -4521,6 +4524,16 @@ export default function App() {
                     value={dolar} onChange={e => setDolarMap(p => ({ ...p, [key]: Number(e.target.value) }))} onBlur={() => setEditDolar(false)} />
                 : <button onClick={() => setEditDolar(true)} className="bg-emerald-50 border border-emerald-300 text-emerald-800 font-bold text-sm px-3 py-1 rounded-lg hover:bg-emerald-100">
                     ${dolar.toLocaleString("es-AR")} editar
+                  </button>
+              }
+            </div>
+            <div className="flex flex-col items-end">
+              <span className="text-gray-400 text-xs font-medium mb-1">Dolar Crypto</span>
+              {editDolarCrypto
+                ? <input type="number" autoFocus className="w-28 border-2 border-purple-400 rounded-lg px-2 py-1 text-sm font-bold text-center focus:outline-none"
+                    value={dolarCrypto || ""} onChange={e => setDolarCryptoMap(p => ({ ...p, [key]: Number(e.target.value) }))} onBlur={() => setEditDolarCrypto(false)} />
+                : <button onClick={() => setEditDolarCrypto(true)} className="bg-purple-50 border border-purple-300 text-purple-800 font-bold text-sm px-3 py-1 rounded-lg hover:bg-purple-100">
+                    {dolarCrypto > 0 ? "$" + dolarCrypto.toLocaleString("es-AR") : "—"} editar
                   </button>
               }
             </div>
