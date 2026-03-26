@@ -3788,15 +3788,18 @@ function EmployeeProfile({ emp, dolarMap, dolarCryptoMap, ipcMap, ranks, onClose
                 const next = filteredHistory[i + 1];
                 const sd = new Date(snap.from);
                 const dk = mkey(sd.getFullYear(), sd.getMonth());
-                const d = dolarMap[dk] || 1420;
-                const arsTotal = toARS(snap.payments, d);
+                const dBlue = dolarMap[dk] || 1420;
+                const dCryptoSnap = dolarCryptoMap[dk] || dBlue;
+                const arsTotal = useCrypto ? toARSProfile(snap.payments, dBlue, dCryptoSnap) : toARS(snap.payments, dBlue);
+                const dLabel = useCrypto ? dCryptoSnap : dBlue;
                 let pct = null;
                 if (i > 0) {
                   const prev = filteredHistory[i - 1];
                   const pd2 = new Date(prev.from);
                   const pk = mkey(pd2.getFullYear(), pd2.getMonth());
-                  const pd = dolarMap[pk] || 1420;
-                  const prevTotal = toARS(prev.payments, pd);
+                  const pdBlue = dolarMap[pk] || 1420;
+                  const pdCrypto = dolarCryptoMap[pk] || pdBlue;
+                  const prevTotal = useCrypto ? toARSProfile(prev.payments, pdBlue, pdCrypto) : toARS(prev.payments, pdBlue);
                   if (prevTotal > 0) pct = ((arsTotal - prevTotal) / prevTotal) * 100;
                 }
                 const prev = i > 0 ? filteredHistory[i - 1] : null;
@@ -3866,7 +3869,7 @@ function EmployeeProfile({ emp, dolarMap, dolarCryptoMap, ipcMap, ranks, onClose
                         })}
                       </div>
                       <div className="mt-2 pt-2 border-t border-gray-100 flex items-center justify-between">
-                        <span className="text-xs text-gray-400">Total al dolar del periodo (${d.toLocaleString("es-AR")})</span>
+                        <span className="text-xs text-gray-400">Total al dolar del periodo (${dLabel.toLocaleString("es-AR")})</span>
                         <span className="font-bold text-gray-800 text-sm">{fARS(arsTotal)}</span>
                       </div>
                     </div>
