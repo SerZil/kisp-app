@@ -4033,6 +4033,19 @@ export default function App() {
       } catch (e) {
         console.log("No se pudo obtener dolar blue:", e);
       }
+      try {
+        const res = await fetch("https://dolarapi.com/v1/dolares/cripto");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.compra) {
+            const now = new Date();
+            const k = mkey(now.getFullYear(), now.getMonth());
+            setDolarCryptoMap(prev => ({ ...prev, [k]: data.compra }));
+          }
+        }
+      } catch (e) {
+        console.log("No se pudo obtener dolar cripto:", e);
+      }
     }
 
     async function loadFromStorage() {
