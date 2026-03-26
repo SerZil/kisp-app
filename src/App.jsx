@@ -4562,8 +4562,8 @@ export default function App() {
 
       {/* YEAR / MONTH / DOLAR BAR */}
       {view !== "config" && (
-        <div className="bg-white border-b border-gray-200 px-3 py-2 flex items-start justify-between gap-2 flex-wrap">
-          <div className="flex items-start gap-3">
+        <div className="bg-white border-b border-gray-200 px-3 py-2 flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-3">
             <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1">
               <button onClick={() => setYear(y => Math.max(YEARS[0], y - 1))} className="w-7 h-7 rounded-lg hover:bg-white flex items-center justify-center text-gray-500 font-bold">‹</button>
               <span className="font-black text-gray-900 text-sm px-2 min-w-12 text-center">{year}</span>
@@ -4579,12 +4579,12 @@ export default function App() {
               ))}
             </div>
           </div>
-          <div className="flex items-start gap-3 shrink-0">
+          <div className="flex items-center gap-3 shrink-0">
             {(() => {
               const curKey = mkey(new Date().getFullYear(), new Date().getMonth());
               const isCurrentMonth = key === curKey;
               if (ipcMap[key] != null || isCurrentMonth) return (
-                <div className="flex flex-col items-end">
+                <div className="flex flex-col items-end py-2">
                   <span className="text-gray-400 text-xs font-medium mb-1">IPC INDEC</span>
                   <span className="bg-orange-50 border border-orange-300 text-orange-800 font-bold text-sm px-3 py-1 rounded-lg">
                     {isCurrentMonth && ipcMap[key] == null ? "—" : (ipcMap[key] > 0 ? "+" : "") + ipcMap[key].toFixed(1) + "%"}
