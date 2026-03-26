@@ -4579,7 +4579,7 @@ export default function App() {
               ))}
             </div>
           </div>
-          <div className="flex items-end gap-3 shrink-0">
+          <div className="flex items-start gap-3 shrink-0">
             {(() => {
               const curKey = mkey(new Date().getFullYear(), new Date().getMonth());
               const isCurrentMonth = key === curKey;
