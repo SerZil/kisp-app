@@ -3273,10 +3273,14 @@ function PrintPreview({ emp, dolarMap, ipcMap, ranks, chartData, year, month, ra
   if (snapsInRange.length >= 2) {
     const s0 = snapsInRange[0];
     const sN = snapsInRange[snapsInRange.length - 1];
-    const d0 = dolarMap[mkey(new Date(s0.from).getFullYear(), new Date(s0.from).getMonth())] || 1420;
-    const dN = dolarMap[mkey(new Date(sN.from).getFullYear(), new Date(sN.from).getMonth())] || 1420;
-    const first = toARS(s0.payments, d0);
-    const last  = toARS(sN.payments, dN);
+    const k0 = mkey(new Date(s0.from).getFullYear(), new Date(s0.from).getMonth());
+    const kN = mkey(new Date(sN.from).getFullYear(), new Date(sN.from).getMonth());
+    const d0Blue = dolarMap[k0] || 1420;
+    const dNBlue = dolarMap[kN] || 1420;
+    const d0Crypto = dolarCryptoMap[k0] || d0Blue;
+    const dNCrypto = dolarCryptoMap[kN] || dNBlue;
+    const first = useCrypto ? toARSProfile(s0.payments, d0Blue, d0Crypto) : toARS(s0.payments, d0Blue);
+    const last  = useCrypto ? toARSProfile(sN.payments, dNBlue, dNCrypto) : toARS(sN.payments, dNBlue);
     if (first > 0) {
       varTotal = ((last - first) / first) * 100;
       varLabel = s0.from.slice(0,7) + " → " + sN.from.slice(0,7);
@@ -3730,10 +3734,12 @@ function EmployeeProfile({ emp, dolarMap, dolarCryptoMap, ipcMap, ranks, onClose
                   const fdSnap = snapshotAt(emp, fromKey + "-15");
                   const tdSnap = snapshotAt(emp, toKey   + "-15");
                   if (!fdSnap || !tdSnap) return null;
-                  const dFirst = dolarMap[fromKey] || 1420;
-                  const dLast  = dolarMap[toKey]   || 1420;
-                  const totalFirst = toARS(fdSnap.payments, dFirst);
-                  const totalLast  = toARS(tdSnap.payments, dLast);
+                  const dFirstBlue = dolarMap[fromKey] || 1420;
+                  const dLastBlue  = dolarMap[toKey]   || 1420;
+                  const dFirstCrypto = dolarCryptoMap[fromKey] || dFirstBlue;
+                  const dLastCrypto  = dolarCryptoMap[toKey]   || dLastBlue;
+                  const totalFirst = useCrypto ? toARSProfile(fdSnap.payments, dFirstBlue, dFirstCrypto) : toARS(fdSnap.payments, dFirstBlue);
+                  const totalLast  = useCrypto ? toARSProfile(tdSnap.payments, dLastBlue,  dLastCrypto)  : toARS(tdSnap.payments, dLastBlue);
                   if (totalFirst <= 0) return null;
                   const pct = ((totalLast - totalFirst) / totalFirst) * 100;
                   const color = pct >= 0 ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700";
