@@ -4815,7 +4815,7 @@ export default function App() {
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-3 space-y-2">
               {/* Row 1: search + nuevo empleado */}
               <div className="flex items-center gap-2">
-                <div className="relative w-32 sm:flex-1">
+                <div className="relative flex-1">
                   <input placeholder="Buscar..." value={search} onChange={e => setSearch(e.target.value)}
                     className="w-full border border-gray-200 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-300 pr-6" />
                   {search && (
