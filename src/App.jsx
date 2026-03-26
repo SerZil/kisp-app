@@ -4825,16 +4825,18 @@ export default function App() {
                 <button
                   onClick={() => setShowFuture(v => !v)}
                   title="Ver próximos ingresos"
-                  className={"shrink-0 px-3 py-2 rounded-lg text-sm font-medium border transition-colors " + (showFuture ? "bg-emerald-100 text-emerald-700 border-emerald-300" : "bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200")}
+                  className={"shrink-0 px-2 sm:px-3 py-2 rounded-lg text-sm font-medium border transition-colors " + (showFuture ? "bg-emerald-100 text-emerald-700 border-emerald-300" : "bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200")}
                 >
-                  {showFuture ? "Futuros ×" : "Futuros"}
+                  <span className="hidden sm:inline">{showFuture ? "Futuros ×" : "Futuros"}</span>
+                  <span className="sm:hidden">{showFuture ? "↑×" : "↑"}</span>
                 </button>
                 <button
                   onClick={() => setShowInactive(v => !v)}
                   title="Buscar empleados inactivos"
-                  className={"shrink-0 px-3 py-2 rounded-lg text-sm font-medium border transition-colors " + (showInactive ? "bg-red-100 text-red-700 border-red-300" : "bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200")}
+                  className={"shrink-0 px-2 sm:px-3 py-2 rounded-lg text-sm font-medium border transition-colors " + (showInactive ? "bg-red-100 text-red-700 border-red-300" : "bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200")}
                 >
-                  {showInactive ? "Inactivos ×" : "Inactivos"}
+                  <span className="hidden sm:inline">{showInactive ? "Inactivos ×" : "Inactivos"}</span>
+                  <span className="sm:hidden">{showInactive ? "↓×" : "↓"}</span>
                 </button>
                 <button onClick={() => {
                     const emps = activeWithSnap.slice().sort((a,b) => (a.area||"").localeCompare(b.area||"") || a.name.localeCompare(b.name));
@@ -4934,12 +4936,12 @@ export default function App() {
                     w.onload = () => { w.focus(); w.print(); w.close(); };
                     setTimeout(() => { try { w.focus(); w.print(); } catch(e){} }, 800);
                   }}
-                  className="bg-blue-600 text-white px-3 py-2 rounded-lg text-sm font-bold hover:bg-blue-700 shrink-0 whitespace-nowrap">
-                  🖨 Reporte
+                  className="bg-blue-600 text-white px-2 sm:px-3 py-2 rounded-lg text-sm font-bold hover:bg-blue-700 shrink-0">
+                  <span className="hidden sm:inline">🖨 Reporte</span><span className="sm:hidden">🖨</span>
                 </button>
                 <button onClick={() => setModal({ mode: "add", data: { name: "", team: "", rank: "", area: "", supervisor: "", activeFrom: "", activeTo: "", dni: "", address: "", personalEmail: "", notes: [], payments: {} } })}
-                  className="bg-gray-900 text-white px-3 py-2 rounded-lg text-sm font-bold hover:bg-gray-700 shrink-0 whitespace-nowrap">
-                  + Nuevo
+                  className="bg-gray-900 text-white px-2 sm:px-3 py-2 rounded-lg text-sm font-bold hover:bg-gray-700 shrink-0">
+                  <span className="hidden sm:inline">+ Nuevo</span><span className="sm:hidden">+</span>
                 </button>
               </div>
               {/* Row 2: filters */}
