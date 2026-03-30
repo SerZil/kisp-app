@@ -4697,7 +4697,7 @@ export default function App() {
                   {pendingReminders.map(({ emp, note }) => {
                     const isOverdue = note.reminder < new Date().toISOString().slice(0,7);
                     return (
-                      <div key={note.id} className="flex items-start gap-3 bg-white rounded-xl border border-amber-100 px-3 py-2 cursor-pointer hover:border-amber-300"
+                      <div key={note.id} className="flex items-start gap-3 bg-white rounded-xl border border-amber-100 px-3 py-2 cursor-pointer hover:border-amber-300 group"
                         onClick={() => setProfileEmp(employees.find(e => e.id === emp.id))}>
                         <div className={"w-6 h-6 " + avatarColor(emp.id) + " rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"}>
                           {initials(emp.name)}
@@ -4712,6 +4712,12 @@ export default function App() {
                           </div>
                           <p className="text-xs text-gray-600 mt-0.5 truncate">{note.text}</p>
                         </div>
+                        <button
+                          onClick={e => { e.stopPropagation(); saveNotes(emp.id, (emp.notes||[]).map(n => n.id===note.id ? {...n, active:false, reminder:""} : n)); }}
+                          title="Archivar nota"
+                          className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 text-xs px-2 py-0.5 rounded border border-gray-200 text-gray-400 hover:text-gray-700 hover:border-gray-400 bg-white self-center">
+                          Archivar
+                        </button>
                       </div>
                     );
                   })}
