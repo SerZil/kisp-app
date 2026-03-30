@@ -3491,11 +3491,14 @@ function EmployeeProfile({ emp, dolarMap, dolarCryptoMap, ipcMap, ranks, onClose
   const [useCrypto, setUseCrypto] = useState(false);
   const [newNote, setNewNote] = useState({ text: "", reminder: "" });
 
-  const notes = useMemo(() => [...(emp.notes || [])].sort((a, b) => b.createdAt.localeCompare(a.createdAt)), [emp.notes]);
+  const [showNoteHistory, setShowNoteHistory] = useState(false);
+
+  const activeNotes = useMemo(() => [...(emp.notes || [])].filter(n => n.active !== false).sort((a, b) => b.createdAt.localeCompare(a.createdAt)), [emp.notes]);
+  const inactiveNotes = useMemo(() => [...(emp.notes || [])].filter(n => n.active === false).sort((a, b) => b.createdAt.localeCompare(a.createdAt)), [emp.notes]);
 
   function saveNote() {
     if (!newNote.text.trim()) return;
-    const note = { id: Date.now(), text: newNote.text.trim(), reminder: newNote.reminder, createdAt: new Date().toISOString().slice(0,10) };
+    const note = { id: Date.now(), text: newNote.text.trim(), reminder: newNote.reminder, createdAt: new Date().toISOString().slice(0,10), active: true };
     onSaveNotes(emp.id, [...(emp.notes || []), note]);
     setNewNote({ text: "", reminder: "" });
     setAddingNote(false);
@@ -3503,6 +3506,14 @@ function EmployeeProfile({ emp, dolarMap, dolarCryptoMap, ipcMap, ranks, onClose
 
   function deleteNote(id) {
     onSaveNotes(emp.id, (emp.notes || []).filter(n => n.id !== id));
+  }
+
+  function deactivateNote(id) {
+    onSaveNotes(emp.id, (emp.notes || []).map(n => n.id === id ? { ...n, active: false, reminder: "" } : n));
+  }
+
+  function reactivateNote(id) {
+    onSaveNotes(emp.id, (emp.notes || []).map(n => n.id === id ? { ...n, active: true } : n));
   }
 
   function clearReminder(id) {
@@ -3657,7 +3668,7 @@ function EmployeeProfile({ emp, dolarMap, dolarCryptoMap, ipcMap, ranks, onClose
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <span className="text-base font-black text-gray-900">📝 Notas</span>
-                {notes.length > 0 && <span className="bg-gray-100 text-gray-600 text-xs font-bold px-2 py-0.5 rounded-full">{notes.length}</span>}
+                {activeNotes.length > 0 && <span className="bg-gray-100 text-gray-600 text-xs font-bold px-2 py-0.5 rounded-full">{activeNotes.length}</span>}
               </div>
               <button onClick={() => setAddingNote(v => !v)}
                 className="px-3 py-1.5 rounded-lg bg-gray-900 text-white text-xs font-bold hover:bg-gray-700">
@@ -3685,12 +3696,12 @@ function EmployeeProfile({ emp, dolarMap, dolarCryptoMap, ipcMap, ranks, onClose
               </div>
             )}
 
-            {notes.length === 0 && !addingNote && (
-              <div className="text-center py-6 text-gray-400 text-sm">Sin notas aún</div>
+            {activeNotes.length === 0 && !addingNote && (
+              <div className="text-center py-6 text-gray-400 text-sm">Sin notas activas</div>
             )}
 
             <div className="space-y-2">
-              {notes.map(note => {
+              {activeNotes.map(note => {
                 const today = new Date().toISOString().slice(0,7);
                 const hasReminder = !!note.reminder;
                 const isPending = hasReminder && note.reminder >= today;
@@ -3699,10 +3710,16 @@ function EmployeeProfile({ emp, dolarMap, dolarCryptoMap, ipcMap, ranks, onClose
                   <div key={note.id} className={"rounded-xl border p-3 group " + (isPending ? "bg-amber-50 border-amber-200" : isOverdue ? "bg-red-50 border-red-200" : "bg-gray-50 border-gray-100")}>
                     <div className="flex items-start justify-between gap-2">
                       <p className="text-sm text-gray-800 flex-1 whitespace-pre-wrap">{note.text}</p>
-                      <button onClick={() => deleteNote(note.id)}
-                        className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 text-xs px-1.5 py-0.5 rounded transition-opacity shrink-0">
-                        Del
-                      </button>
+                      <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-opacity shrink-0">
+                        <button onClick={() => deactivateNote(note.id)} title="Archivar nota"
+                          className="text-gray-400 hover:text-gray-600 text-xs px-1.5 py-0.5 rounded border border-gray-200 hover:border-gray-400 bg-white">
+                          Archivar
+                        </button>
+                        <button onClick={() => deleteNote(note.id)} title="Borrar permanentemente"
+                          className="text-red-400 hover:text-red-600 text-xs px-1.5 py-0.5 rounded">
+                          🗑
+                        </button>
+                      </div>
                     </div>
                     <div className="flex items-center gap-2 mt-2">
                       <span className="text-xs text-gray-400">{note.createdAt}</span>
@@ -3721,6 +3738,39 @@ function EmployeeProfile({ emp, dolarMap, dolarCryptoMap, ipcMap, ranks, onClose
                 );
               })}
             </div>
+
+            {/* Historial de notas archivadas */}
+            {inactiveNotes.length > 0 && (
+              <div className="mt-3 border-t border-gray-100 pt-3">
+                <button onClick={() => setShowNoteHistory(v => !v)}
+                  className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-600 font-semibold transition-colors">
+                  <span>{showNoteHistory ? "▾" : "▸"}</span>
+                  Historial archivadas ({inactiveNotes.length})
+                </button>
+                {showNoteHistory && (
+                  <div className="mt-2 space-y-2">
+                    {inactiveNotes.map(note => (
+                      <div key={note.id} className="rounded-xl border border-gray-100 bg-gray-50 p-3 group opacity-60 hover:opacity-100 transition-opacity">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="text-sm text-gray-500 flex-1 whitespace-pre-wrap">{note.text}</p>
+                          <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-opacity shrink-0">
+                            <button onClick={() => reactivateNote(note.id)} title="Restaurar nota"
+                              className="text-green-500 hover:text-green-700 text-xs px-1.5 py-0.5 rounded border border-green-200 hover:border-green-400 bg-white">
+                              Restaurar
+                            </button>
+                            <button onClick={() => deleteNote(note.id)} title="Borrar permanentemente"
+                              className="text-red-400 hover:text-red-600 text-xs px-1.5 py-0.5 rounded">
+                              🗑
+                            </button>
+                          </div>
+                        </div>
+                        <span className="text-xs text-gray-400">{note.createdAt}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* timeline */}
@@ -4175,7 +4225,7 @@ export default function App() {
     const results = [];
     employees.forEach(emp => {
       (emp.notes || []).forEach(note => {
-        if (note.reminder) {
+        if (note.reminder && note.active !== false) {
           results.push({ emp, note });
         }
       });
