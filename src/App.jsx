@@ -4163,14 +4163,17 @@ export default function App() {
         if (res.ok) {
           const data = await res.json();
           if (data.employees) {
-            // Migrate: strip Bonus from history snapshots (bonus now lives in bonusAmount/bonusMonth)
-            const migratedEmployees = data.employees.map(e => ({
-              ...e,
-              history: (e.history || []).map(s => {
-                const { Bonus, ...rest } = s.payments || {};
-                return { ...s, payments: rest };
-              })
-            }));
+            // Migrate: strip ALL bonus data (clean slate)
+            const migratedEmployees = data.employees.map(e => {
+              const { bonusAmount, bonusMonth, bonusHistory, ...empRest } = e;
+              return {
+                ...empRest,
+                history: (e.history || []).map(s => {
+                  const { Bonus, ...rest } = s.payments || {};
+                  return { ...s, payments: rest };
+                })
+              };
+            });
             setEmployees(migratedEmployees);
             if (data.dolarMap) setDolarMap(data.dolarMap);
             setStorageReady(true);
