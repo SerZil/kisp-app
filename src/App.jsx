@@ -4163,17 +4163,14 @@ export default function App() {
         if (res.ok) {
           const data = await res.json();
           if (data.employees) {
-            // Migrate: strip ALL bonus data (clean slate)
-            const migratedEmployees = data.employees.map(e => {
-              const { bonusAmount, bonusMonth, bonusHistory, ...empRest } = e;
-              return {
-                ...empRest,
-                history: (e.history || []).map(s => {
-                  const { Bonus, ...rest } = s.payments || {};
-                  return { ...s, payments: rest };
-                })
-              };
-            });
+            // Migrate: strip Bonus from history snapshots (bonus lives in bonusAmount/bonusMonth on root)
+            const migratedEmployees = data.employees.map(e => ({
+              ...e,
+              history: (e.history || []).map(s => {
+                const { Bonus, ...rest } = s.payments || {};
+                return { ...s, payments: rest };
+              })
+            }));
             setEmployees(migratedEmployees);
             if (data.dolarMap) setDolarMap(data.dolarMap);
             setStorageReady(true);
@@ -4251,7 +4248,7 @@ export default function App() {
       .map(e => {
         const snap = snapshotAt(e, key + "-15");
         const payments = snap ? { ...snap.payments } : {};
-        payments.Bonus = (e.bonusMonth && e.bonusMonth === key) ? (e.bonusAmount || 0) : 0;
+        payments.Bonus = (e.bonusMonth === key && e.bonusAmount > 0) ? e.bonusAmount : 0;
         return { ...e, rank: snap ? snap.rank : "", payments };
       });
   }, [employees, year, month, key]);
@@ -4444,7 +4441,7 @@ export default function App() {
         openGmailDraft("cash2Change", { ...emp, _monthYear: monthYear });
       }
       const oldBonus = existing?.bonusAmount || 0;
-      const newBonus = emp.payments ? (emp.payments.Bonus || 0) : 0;
+      const newBonus = emp.bonusAmount || 0;
       if (newBonus !== oldBonus && newBonus > 0) {
         const bonusMonthYear = emp.bonusMonth
           ? new Date(emp.bonusMonth + "-15").toLocaleDateString("en-US", { year:"numeric", month:"long" })
@@ -6059,7 +6056,6 @@ const ITEMS = [
   { key:"Healthcare", label:"Healthcare", unit:"USD", color:"pink",   note:"Sigue el troncal", notARS:true },
   { key:"Allowance",  label:"Allowance",  unit:"USD", color:"yellow", note:"Sigue el troncal", noteARS:"USD Buenos Aires" },
   { key:"Cash2",      label:"Cash 2",     unit:"USD", color:"green",  note:"Siempre BsAs" },
-  { key:"Bonus",      label:"Bonus",      unit:"USD", color:"teal",   note:"Siempre BsAs" },
 ];
 
 function EmployeeModal({ data, mode, teams, ranks, areas, supervisors, onSave, onClose }) {
@@ -6071,8 +6067,8 @@ function EmployeeModal({ data, mode, teams, ranks, areas, supervisors, onSave, o
       let snap = sorted[0];
       for (const s of sorted) { if (s.from <= today) snap = s; }
       if (snap && Object.values(snap.payments || {}).some(v => v > 0)) {
-        const p = { ...snap.payments, Bonus: data.bonusAmount || 0 };
-        return p;
+        const { Bonus, ...snapPay } = snap.payments || {};
+        return snapPay;
       }
     }
     return { ...(data.payments || {}) };
@@ -6231,10 +6227,37 @@ function EmployeeModal({ data, mode, teams, ranks, areas, supervisors, onSave, o
                 );
               })}
             </div>
+            {/* Bonus section — completely separate from salary payments */}
+            <div className="border border-teal-200 rounded-xl p-3 bg-teal-50 space-y-2 mt-2">
+              <div className="text-xs font-bold text-teal-700 uppercase">Bono puntual</div>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-teal-600 w-16 shrink-0">Monto USD</span>
+                <input type="number" placeholder="0"
+                  className="w-28 border border-teal-200 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none"
+                  value={f.bonusAmount || ""}
+                  onChange={e => {
+                    const v = Number(e.target.value) || 0;
+                    setF(p => ({ ...p, bonusAmount: v, bonusMonth: v === 0 ? "" : p.bonusMonth }));
+                  }} />
+                <span className="text-xs text-teal-500">USD</span>
+              </div>
+              {(f.bonusAmount > 0) && (
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-teal-600 w-16 shrink-0">Mes que aplica</span>
+                  <input type="month"
+                    className="border border-teal-200 rounded-lg px-2 py-1.5 text-sm bg-white focus:outline-none text-teal-700"
+                    value={f.bonusMonth || ""}
+                    onChange={e => setF(p => ({ ...p, bonusMonth: e.target.value }))} />
+                </div>
+              )}
+              {(f.bonusAmount > 0 && !f.bonusMonth) && (
+                <p className="text-xs text-amber-600">⚠️ Elegí el mes que aplica</p>
+              )}
+            </div>
           </div>
         </div>
         {(() => {
-          const totalUSD = (f.payments.Crypto||0)+(f.payments.Canada||0)+(f.payments.Healthcare||0)+(f.payments.Allowance||0)+(f.payments.Cash2||0)+(f.payments.Bonus||0);
+          const totalUSD = (f.payments.Crypto||0)+(f.payments.Canada||0)+(f.payments.Healthcare||0)+(f.payments.Allowance||0)+(f.payments.Cash2||0);
           return totalUSD > 0 ? (
             <div className="px-4 py-3 border-t border-gray-100 bg-gray-50 shrink-0">
               <div className="flex items-center justify-between">
