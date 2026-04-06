@@ -4523,7 +4523,8 @@ export default function App() {
         }
         // Always strip Bonus from ALL snapshots (bonus lives in bonusAmount/bonusMonth, not in history)
         newHistory = newHistory.map(s => { const { Bonus, ...rest } = s.payments || {}; return { ...s, payments: rest }; });
-        return { ...emp, bonusVersion: 5, history: newHistory };
+        const { bonusAmount: _ba, bonusMonth: _bm, ...empClean } = emp;
+        return { ...empClean, bonusVersion: 5, history: newHistory };
       }));
     } else {
       const newEmp = { ...emp, id: Date.now(), history: [{ from: emp.activeFrom || new Date().toISOString().slice(0, 10), rank: emp.rank, payments: { ...emp.payments }, note: "Ingreso" }] };
@@ -5773,6 +5774,7 @@ export default function App() {
           ranks={ranks}
           areas={areas}
           supervisors={[...new Set(employees.map(e => e.name).filter(Boolean))].sort()}
+          currentKey={key}
           onSave={saveEmployee}
           onClose={() => setModal(null)}
         />
@@ -6055,7 +6057,7 @@ const ITEMS = [
   { key:"Cash2",      label:"Cash 2",     unit:"USD", color:"green",  note:"Siempre BsAs" },
 ];
 
-function EmployeeModal({ data, mode, teams, ranks, areas, supervisors, onSave, onClose }) {
+function EmployeeModal({ data, mode, teams, ranks, areas, supervisors, currentKey, onSave, onClose }) {
   // Initialize payments from history snapshot at today (avoids corrupted top-level payments)
   const _initPayments = (() => {
     if (data.history && data.history.length > 0) {
@@ -6081,7 +6083,12 @@ function EmployeeModal({ data, mode, teams, ranks, areas, supervisors, onSave, o
     }
     return "";
   })();
-  const [f, setF] = useState({ ...data, rank: _initRank, payments: _initPayments });
+  // Init bonus from bonusHistory for the currently viewed month only
+  const _initBonus = (() => {
+    const entry = (data.bonusHistory || []).find(b => b.month === currentKey);
+    return { amount: entry ? entry.amount : 0, month: entry ? entry.month : "" };
+  })();
+  const [f, setF] = useState({ ...data, rank: _initRank, payments: _initPayments, bonusAmount: _initBonus.amount, bonusMonth: _initBonus.month });
   const [applyNextMonth, setApplyNextMonth] = useState(true);
   const [selectedTrunk, setSelectedTrunk] = useState(
     TRUNKS.find(t => (_initPayments[t] || 0) > 0) || null
