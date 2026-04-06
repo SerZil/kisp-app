@@ -4396,7 +4396,7 @@ export default function App() {
       .replace(/\{arsNet\}/g, b(arsOnlyParts))
       .replace(/\{monthYear\}/g, monthVal)
       .replace(/\{cash2Amount\}/g, b(cash2Amount))
-      .replace(/\{bonusAmount\}/g, b(emp.payments && emp.payments.Bonus ? Math.round(emp.payments.Bonus).toLocaleString("es-AR") : "—"))
+      .replace(/\{bonusAmount\}/g, b(emp.bonusAmount ? Math.round(emp.bonusAmount).toLocaleString("es-AR") : (emp.payments && emp.payments.Bonus ? Math.round(emp.payments.Bonus).toLocaleString("es-AR") : "—")))
       .replace(/\{cryptoAmount\}/g, b(emp.payments && emp.payments.Crypto ? Math.round(emp.payments.Crypto).toLocaleString("es-AR") : "—"))
       .replace(/\{changeDirection\}/g, emp._changeDirection || "updated")
       .replace(/\{himHer\}/g, himHer)
