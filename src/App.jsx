@@ -4163,15 +4163,15 @@ export default function App() {
         if (res.ok) {
           const data = await res.json();
           if (data.employees) {
-            // Migrate: v3 = complete bonus reset. All employees below v3 get bonus fields wiped.
+            // Migrate: v4 = bonusHistory is sole source of truth. Wipe all stale bonus root fields.
             const migratedEmployees = data.employees.map(e => {
               const history = (e.history || []).map(s => {
                 const { Bonus, ...rest } = s.payments || {};
                 return { ...s, payments: rest };
               });
-              if ((e.bonusVersion || 0) < 3) {
+              if ((e.bonusVersion || 0) < 4) {
                 const { bonusAmount, bonusMonth, bonusHistory, bonusVersion, ...empRest } = e;
-                return { ...empRest, bonusVersion: 3, history };
+                return { ...empRest, bonusHistory: [], bonusVersion: 4, history };
               }
               return { ...e, history };
             });
@@ -4252,7 +4252,7 @@ export default function App() {
       .map(e => {
         const snap = snapshotAt(e, key + "-15");
         const payments = snap ? { ...snap.payments } : {};
-        payments.Bonus = (e.bonusMonth === key && e.bonusAmount > 0) ? e.bonusAmount : 0;
+        payments.Bonus = (e.bonusHistory || []).find(b => b.month === key)?.amount || 0;
         return { ...e, rank: snap ? snap.rank : "", payments };
       });
   }, [employees, year, month, key]);
@@ -4444,30 +4444,21 @@ export default function App() {
       if (newCash2 !== oldCash2 && newCash2 > 0) {
         openGmailDraft("cash2Change", { ...emp, _monthYear: monthYear });
       }
-      const oldBonus = existing?.bonusAmount || 0;
       const newBonus = emp.bonusAmount || 0;
-      if (newBonus !== oldBonus && newBonus > 0) {
-        const bonusMonthYear = emp.bonusMonth
-          ? new Date(emp.bonusMonth + "-15").toLocaleDateString("en-US", { year:"numeric", month:"long" })
-          : monthYear;
+      const newBonusMonth = emp.bonusMonth || "";
+      const oldEntry = (existing?.bonusHistory || []).find(b => b.month === newBonusMonth);
+      if (newBonus > 0 && newBonusMonth && (!oldEntry || oldEntry.amount !== newBonus)) {
+        const bonusMonthYear = new Date(newBonusMonth + "-15").toLocaleDateString("en-US", { year:"numeric", month:"long" });
         openGmailDraft("bonusChange", { ...emp, _monthYear: bonusMonthYear });
       }
-      if (newBonus > 0 && emp.bonusMonth) {
+      if (newBonus > 0 && newBonusMonth) {
         // Replace entry for same month if exists, otherwise append
-        const prevHistory = (existing?.bonusHistory || []).filter(b => b.month !== emp.bonusMonth);
-        emp = { ...emp, bonusHistory: [...prevHistory, { month: emp.bonusMonth, amount: newBonus }] };
+        const prevHistory = (existing?.bonusHistory || []).filter(b => b.month !== newBonusMonth);
+        emp = { ...emp, bonusHistory: [...prevHistory, { month: newBonusMonth, amount: newBonus }] };
       }
-      if (newBonus === 0 && oldBonus > 0) {
-        setEmployees(p => p.map(e => {
-          if (e.id !== emp.id) return e;
-          return { ...emp, bonusAmount: 0, bonusMonth: "", bonusVersion: 3, history: e.history.map(s => {
-            const { Bonus, ...rest } = s.payments || {};
-            return { ...s, payments: rest };
-          })};
-        }));
-        showToast(emp.name + " guardado");
-        setModal(null);
-        return;
+      if (newBonus === 0 && newBonusMonth) {
+        // Clear bonus for specific month
+        emp = { ...emp, bonusHistory: (existing?.bonusHistory || []).filter(b => b.month !== newBonusMonth) };
       }
       const lastSnap2 = existing && existing.history.length > 0 ? existing.history[existing.history.length - 1] : null;
       const oldCrypto = lastSnap2?.payments?.Crypto || 0;
@@ -4530,7 +4521,7 @@ export default function App() {
         }
         // Always strip Bonus from ALL snapshots (bonus lives in bonusAmount/bonusMonth, not in history)
         newHistory = newHistory.map(s => { const { Bonus, ...rest } = s.payments || {}; return { ...s, payments: rest }; });
-        return { ...emp, bonusAmount: emp.bonusAmount || 0, bonusVersion: 3, history: newHistory };
+        return { ...emp, bonusAmount: emp.bonusAmount || 0, bonusVersion: 4, history: newHistory };
       }));
     } else {
       const newEmp = { ...emp, id: Date.now(), history: [{ from: emp.activeFrom || new Date().toISOString().slice(0, 10), rank: emp.rank, payments: { ...emp.payments }, note: "Ingreso" }] };
