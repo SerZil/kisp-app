@@ -6235,25 +6235,24 @@ function EmployeeModal({ data, mode, teams, ranks, areas, supervisors, currentKe
             <div className="border border-teal-200 rounded-xl p-3 bg-teal-50 space-y-2 mt-2">
               <div className="text-xs font-bold text-teal-700 uppercase">Bono puntual</div>
               <div className="flex items-center gap-3">
+                <span className="text-xs text-teal-600 w-16 shrink-0">Mes</span>
+                <input type="month"
+                  className="border border-teal-200 rounded-lg px-2 py-1.5 text-sm bg-white focus:outline-none text-teal-700"
+                  value={f.bonusMonth || ""}
+                  onChange={e => {
+                    const m = e.target.value;
+                    const existing = (data.bonusHistory || []).find(b => b.month === m);
+                    setF(p => ({ ...p, bonusMonth: m, bonusAmount: existing ? existing.amount : 0 }));
+                  }} />
+              </div>
+              <div className="flex items-center gap-3">
                 <span className="text-xs text-teal-600 w-16 shrink-0">Monto USD</span>
                 <input type="number" placeholder="0"
                   className="w-28 border border-teal-200 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none"
                   value={f.bonusAmount || ""}
-                  onChange={e => {
-                    const v = Number(e.target.value) || 0;
-                    setF(p => ({ ...p, bonusAmount: v, bonusMonth: v === 0 ? "" : p.bonusMonth }));
-                  }} />
+                  onChange={e => { const v = Number(e.target.value) || 0; setF(p => ({ ...p, bonusAmount: v })); }} />
                 <span className="text-xs text-teal-500">USD</span>
               </div>
-              {(f.bonusAmount > 0) && (
-                <div className="flex items-center gap-3">
-                  <span className="text-xs text-teal-600 w-16 shrink-0">Mes que aplica</span>
-                  <input type="month"
-                    className="border border-teal-200 rounded-lg px-2 py-1.5 text-sm bg-white focus:outline-none text-teal-700"
-                    value={f.bonusMonth || ""}
-                    onChange={e => setF(p => ({ ...p, bonusMonth: e.target.value }))} />
-                </div>
-              )}
               {(f.bonusAmount > 0 && !f.bonusMonth) && (
                 <p className="text-xs text-amber-600">⚠️ Elegí el mes que aplica</p>
               )}
