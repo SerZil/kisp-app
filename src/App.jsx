@@ -4239,7 +4239,9 @@ export default function App() {
       .filter(e => isActiveInMonth(e, year, month))
       .map(e => {
         const snap = snapshotAt(e, key + "-15");
-        return { ...e, rank: snap ? snap.rank : "", payments: snap ? snap.payments : {} };
+        const payments = snap ? { ...snap.payments } : {};
+        if (e.bonusMonth && e.bonusMonth !== key) payments.Bonus = 0;
+        return { ...e, rank: snap ? snap.rank : "", payments };
       });
   }, [employees, year, month, key]);
 
@@ -6107,16 +6109,32 @@ function EmployeeModal({ data, mode, teams, ranks, areas, supervisors, onSave, o
                 if (item.notARS && selectedTrunk === "ARS") return null;
                 const cc = COLOR[item.color] || COLOR.green;
                 return (
-                  <div key={item.key} className={"flex items-center gap-3 p-2.5 rounded-xl " + cc.bg}>
-                    <div className="flex-1 min-w-0">
-                      <span className={"text-xs font-semibold " + cc.text}>{item.label}</span>
-                      <span className="text-xs text-gray-400 ml-1.5">{selectedTrunk === "ARS" && item.noteARS ? item.noteARS : item.note}</span>
+                  <React.Fragment key={item.key}>
+                    <div className={"flex items-center gap-3 p-2.5 rounded-xl " + cc.bg}>
+                      <div className="flex-1 min-w-0">
+                        <span className={"text-xs font-semibold " + cc.text}>{item.label}</span>
+                        <span className="text-xs text-gray-400 ml-1.5">{selectedTrunk === "ARS" && item.noteARS ? item.noteARS : item.note}</span>
+                      </div>
+                      <input type="number" placeholder="0"
+                        className={"w-24 border " + cc.border + " rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none"}
+                        value={f.payments[item.key] || ""} onChange={e => {
+                          setPay(item.key, e.target.value);
+                          if (item.key === "Bonus" && (!e.target.value || Number(e.target.value) === 0)) {
+                            setF(p => ({ ...p, bonusMonth: "" }));
+                          }
+                        }} />
+                      <span className={"text-xs opacity-60 w-8 " + cc.text}>{item.unit}</span>
                     </div>
-                    <input type="number" placeholder="0"
-                      className={"w-24 border " + cc.border + " rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none"}
-                      value={f.payments[item.key] || ""} onChange={e => setPay(item.key, e.target.value)} />
-                    <span className={"text-xs opacity-60 w-8 " + cc.text}>{item.unit}</span>
-                  </div>
+                    {item.key === "Bonus" && (f.payments.Bonus > 0) && (
+                      <div className="flex items-center gap-3 px-3 py-2 rounded-xl bg-teal-50 border border-teal-100 -mt-1">
+                        <span className="text-xs text-teal-600 flex-1">Mes que aplica</span>
+                        <input type="month"
+                          className="border border-teal-200 rounded-lg px-2 py-1 text-sm bg-white focus:outline-none text-teal-700"
+                          value={f.bonusMonth || ""}
+                          onChange={e => setF(p => ({ ...p, bonusMonth: e.target.value }))} />
+                      </div>
+                    )}
+                  </React.Fragment>
                 );
               })}
             </div>
