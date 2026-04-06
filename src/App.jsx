@@ -4240,7 +4240,7 @@ export default function App() {
       .map(e => {
         const snap = snapshotAt(e, key + "-15");
         const payments = snap ? { ...snap.payments } : {};
-        if (e.bonusMonth && e.bonusMonth !== key) payments.Bonus = 0;
+        if (!e.bonusMonth || e.bonusMonth !== key) payments.Bonus = 0;
         return { ...e, rank: snap ? snap.rank : "", payments };
       });
   }, [employees, year, month, key]);
