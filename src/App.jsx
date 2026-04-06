@@ -4437,6 +4437,12 @@ export default function App() {
       if (newBonus !== oldBonus && newBonus > 0) {
         openGmailDraft("bonusChange", { ...emp, _monthYear: monthYear });
       }
+      if (newBonus > 0 && emp.bonusMonth) {
+        const prevHistory = existing?.bonusHistory || [];
+        if (!prevHistory.find(b => b.month === emp.bonusMonth && b.amount === newBonus)) {
+          emp = { ...emp, bonusHistory: [...prevHistory, { month: emp.bonusMonth, amount: newBonus }] };
+        }
+      }
       if (newBonus === 0 && oldBonus > 0) {
         setEmployees(p => p.map(e => {
           if (e.id !== emp.id) return e;
@@ -4540,7 +4546,7 @@ export default function App() {
     showToast("✉️ Drafts de onboarding enviados para " + emp.name);
   }
 
-  const NAV = [["dashboard", "Dashboard", "Dash"], ["nomina", "Nomina", "Nómina"], ["ranking", "Ranking", "Rank"], ["comparar", "Comparar", "Comp."], ["historial", "Historial", "Hist."], ["config", "Config", "Config"]];
+  const NAV = [["dashboard", "Dashboard", "Dash"], ["nomina", "Nomina", "Nómina"], ["ranking", "Ranking", "Rank"], ["comparar", "Comparar", "Comp."], ["historial", "Historial", "Hist."], ["bonos", "Bonos", "Bonos"], ["config", "Config", "Config"]];
 
   // Set mobile viewport
   useEffect(() => {
@@ -5631,6 +5637,62 @@ export default function App() {
             </div>
           </div>
         )}
+
+        {/* ── BONOS ── */}
+        {view === "bonos" && (() => {
+          const allBonuses = employees
+            .flatMap(e => (e.bonusHistory || []).map(b => ({ emp: e, month: b.month, amount: b.amount })))
+            .sort((a, b) => b.month.localeCompare(a.month));
+          const grouped = {};
+          allBonuses.forEach(b => { if (!grouped[b.month]) grouped[b.month] = []; grouped[b.month].push(b); });
+          const months = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
+          return (
+            <div className="space-y-5">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-bold text-gray-900">Historial de Bonos</h2>
+                <span className="text-sm text-gray-400">{allBonuses.length} bono{allBonuses.length !== 1 ? "s" : ""} registrados</span>
+              </div>
+              {allBonuses.length === 0 && (
+                <div className="bg-gray-50 border border-gray-200 rounded-2xl p-8 text-center text-gray-400 text-sm">No hay bonos registrados aún.</div>
+              )}
+              {months.map(m => {
+                const items = grouped[m];
+                const total = items.reduce((s, b) => s + b.amount, 0);
+                return (
+                  <div key={m} className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+                    <div className="flex items-center justify-between px-5 py-3 bg-teal-50 border-b border-teal-100">
+                      <span className="font-bold text-teal-800">{MONTHS[parseInt(m.slice(5,7))-1]} {m.slice(0,4)}</span>
+                      <span className="text-sm font-semibold text-teal-700">Total: U$ {total.toLocaleString("es-AR")}</span>
+                    </div>
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-xs text-gray-400 uppercase border-b border-gray-100">
+                          <th className="text-left px-5 py-2 font-medium">Empleado</th>
+                          <th className="text-left px-5 py-2 font-medium">Área</th>
+                          <th className="text-right px-5 py-2 font-medium">Monto</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {items.map((b, i) => (
+                          <tr key={i} className="border-b border-gray-50 hover:bg-gray-50 cursor-pointer" onClick={() => setProfileEmp(employees.find(e => e.id === b.emp.id))}>
+                            <td className="px-5 py-2.5">
+                              <div className="flex items-center gap-2">
+                                <div className={"w-6 h-6 " + avatarColor(b.emp.id) + " rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"}>{initials(b.emp.name)}</div>
+                                <span className="font-medium text-gray-800">{b.emp.name}</span>
+                              </div>
+                            </td>
+                            <td className="px-5 py-2.5 text-gray-400">{b.emp.area}</td>
+                            <td className="px-5 py-2.5 text-right font-mono font-semibold text-teal-700">U$ {b.amount.toLocaleString("es-AR")}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
 
         {/* ── CONFIG ── */}
         {view === "config" && (
