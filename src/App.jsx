@@ -4163,7 +4163,15 @@ export default function App() {
         if (res.ok) {
           const data = await res.json();
           if (data.employees) {
-            setEmployees(data.employees);
+            // Migrate: strip Bonus from history snapshots (bonus now lives in bonusAmount/bonusMonth)
+            const migratedEmployees = data.employees.map(e => ({
+              ...e,
+              history: (e.history || []).map(s => {
+                const { Bonus, ...rest } = s.payments || {};
+                return { ...s, payments: rest };
+              })
+            }));
+            setEmployees(migratedEmployees);
             if (data.dolarMap) setDolarMap(data.dolarMap);
             setStorageReady(true);
             fetchDolarBlue();
@@ -4438,10 +4446,9 @@ export default function App() {
         openGmailDraft("bonusChange", { ...emp, _monthYear: monthYear });
       }
       if (newBonus > 0 && emp.bonusMonth) {
-        const prevHistory = existing?.bonusHistory || [];
-        if (!prevHistory.find(b => b.month === emp.bonusMonth && b.amount === newBonus)) {
-          emp = { ...emp, bonusHistory: [...prevHistory, { month: emp.bonusMonth, amount: newBonus }] };
-        }
+        // Replace entry for same month if exists, otherwise append
+        const prevHistory = (existing?.bonusHistory || []).filter(b => b.month !== emp.bonusMonth);
+        emp = { ...emp, bonusHistory: [...prevHistory, { month: emp.bonusMonth, amount: newBonus }] };
       }
       if (newBonus === 0 && oldBonus > 0) {
         setEmployees(p => p.map(e => {
