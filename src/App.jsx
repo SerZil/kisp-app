@@ -4432,10 +4432,23 @@ export default function App() {
       if (newCash2 !== oldCash2 && newCash2 > 0) {
         openGmailDraft("cash2Change", { ...emp, _monthYear: monthYear });
       }
-      const oldBonus = existing && existing.payments ? (existing.payments.Bonus || 0) : 0;
+      const oldBonus = existing ? (existing.history.length > 0 ? (existing.history[existing.history.length-1].payments?.Bonus || 0) : (existing.payments?.Bonus || 0)) : 0;
       const newBonus = emp.payments ? (emp.payments.Bonus || 0) : 0;
       if (newBonus !== oldBonus && newBonus > 0) {
         openGmailDraft("bonusChange", { ...emp, _monthYear: monthYear });
+      }
+      if (newBonus === 0 && oldBonus > 0) {
+        // Clear bonus from ALL history snapshots
+        setEmployees(p => p.map(e => {
+          if (e.id !== emp.id) return e;
+          return { ...emp, bonusMonth: "", history: e.history.map(s => {
+            const { Bonus, ...rest } = s.payments || {};
+            return { ...s, payments: rest };
+          })};
+        }));
+        showToast(emp.name + " guardado");
+        setModal(null);
+        return;
       }
       const lastSnap2 = existing && existing.history.length > 0 ? existing.history[existing.history.length - 1] : null;
       const oldCrypto = lastSnap2?.payments?.Crypto || 0;
@@ -5980,7 +5993,11 @@ function EmployeeModal({ data, mode, teams, ranks, areas, supervisors, onSave, o
       const sorted = [...data.history].sort((a, b) => a.from.localeCompare(b.from));
       let snap = sorted[0];
       for (const s of sorted) { if (s.from <= today) snap = s; }
-      if (snap && Object.values(snap.payments || {}).some(v => v > 0)) return { ...snap.payments };
+      if (snap && Object.values(snap.payments || {}).some(v => v > 0)) {
+        const p = { ...snap.payments };
+        if (!data.bonusMonth) p.Bonus = 0;
+        return p;
+      }
     }
     return { ...(data.payments || {}) };
   })();
