@@ -4163,14 +4163,18 @@ export default function App() {
         if (res.ok) {
           const data = await res.json();
           if (data.employees) {
-            // Migrate: strip Bonus from history snapshots (bonus lives in bonusAmount/bonusMonth on root)
-            const migratedEmployees = data.employees.map(e => ({
-              ...e,
-              history: (e.history || []).map(s => {
+            // Migrate: v2 = clean bonus system. Strip old stale bonus data.
+            const migratedEmployees = data.employees.map(e => {
+              const history = (e.history || []).map(s => {
                 const { Bonus, ...rest } = s.payments || {};
                 return { ...s, payments: rest };
-              })
-            }));
+              });
+              if (e.bonusVersion !== 2) {
+                const { bonusAmount, bonusMonth, bonusHistory, ...empRest } = e;
+                return { ...empRest, bonusVersion: 2, history };
+              }
+              return { ...e, history };
+            });
             setEmployees(migratedEmployees);
             if (data.dolarMap) setDolarMap(data.dolarMap);
             setStorageReady(true);
@@ -4456,7 +4460,7 @@ export default function App() {
       if (newBonus === 0 && oldBonus > 0) {
         setEmployees(p => p.map(e => {
           if (e.id !== emp.id) return e;
-          return { ...emp, bonusAmount: 0, bonusMonth: "", history: e.history.map(s => {
+          return { ...emp, bonusAmount: 0, bonusMonth: "", bonusVersion: 2, history: e.history.map(s => {
             const { Bonus, ...rest } = s.payments || {};
             return { ...s, payments: rest };
           })};
@@ -4526,7 +4530,7 @@ export default function App() {
         }
         // Always strip Bonus from ALL snapshots (bonus lives in bonusAmount/bonusMonth, not in history)
         newHistory = newHistory.map(s => { const { Bonus, ...rest } = s.payments || {}; return { ...s, payments: rest }; });
-        return { ...emp, bonusAmount: emp.payments?.Bonus || 0, history: newHistory };
+        return { ...emp, bonusAmount: emp.bonusAmount || 0, bonusVersion: 2, history: newHistory };
       }));
     } else {
       const newEmp = { ...emp, id: Date.now(), history: [{ from: emp.activeFrom || new Date().toISOString().slice(0, 10), rank: emp.rank, payments: { ...emp.payments }, note: "Ingreso" }] };
