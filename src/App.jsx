@@ -4163,17 +4163,19 @@ export default function App() {
         if (res.ok) {
           const data = await res.json();
           if (data.employees) {
-            // Migrate: v4 = bonusHistory is sole source of truth. Wipe all stale bonus root fields.
+            // Migrate v5: full bonus reset. Clear ALL bonus data for any employee below v5.
             const migratedEmployees = data.employees.map(e => {
               const history = (e.history || []).map(s => {
                 const { Bonus, ...rest } = s.payments || {};
                 return { ...s, payments: rest };
               });
-              if ((e.bonusVersion || 0) < 4) {
+              if ((e.bonusVersion || 0) < 5) {
                 const { bonusAmount, bonusMonth, bonusHistory, bonusVersion, ...empRest } = e;
-                return { ...empRest, bonusHistory: [], bonusVersion: 4, history };
+                return { ...empRest, bonusHistory: [], bonusVersion: 5, history };
               }
-              return { ...e, history };
+              // v5+ employees: strip root fields, keep bonusHistory
+              const { bonusAmount, bonusMonth, ...empRest } = e;
+              return { ...empRest, history };
             });
             setEmployees(migratedEmployees);
             if (data.dolarMap) setDolarMap(data.dolarMap);
@@ -4521,7 +4523,7 @@ export default function App() {
         }
         // Always strip Bonus from ALL snapshots (bonus lives in bonusAmount/bonusMonth, not in history)
         newHistory = newHistory.map(s => { const { Bonus, ...rest } = s.payments || {}; return { ...s, payments: rest }; });
-        return { ...emp, bonusAmount: emp.bonusAmount || 0, bonusVersion: 4, history: newHistory };
+        return { ...emp, bonusVersion: 5, history: newHistory };
       }));
     } else {
       const newEmp = { ...emp, id: Date.now(), history: [{ from: emp.activeFrom || new Date().toISOString().slice(0, 10), rank: emp.rank, payments: { ...emp.payments }, note: "Ingreso" }] };
