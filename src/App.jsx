@@ -3954,6 +3954,7 @@ export default function App() {
   const [year, setYear]           = useState(() => new Date().getFullYear());
   const [month, setMonth]         = useState(() => new Date().getMonth());
   const [view, setView]           = useState("nomina");
+  const [reportTab, setReportTab] = useState("nomina");
   const [payFilter, setPayFilter] = useState(null);
   const [teamFilter, setTeamFilter] = useState("All");
   const [cargoFilter, setCargoFilter] = useState("All");
@@ -4554,7 +4555,7 @@ export default function App() {
     showToast("✉️ Drafts de onboarding enviados para " + emp.name);
   }
 
-  const NAV = [["dashboard", "Dashboard", "Dash"], ["nomina", "Nomina", "Nómina"], ["ranking", "Ranking", "Rank"], ["comparar", "Comparar", "Comp."], ["historial", "Historial", "Hist."], ["bonos", "Bonos", "Bonos"], ["config", "Config", "Config"]];
+  const NAV = [["dashboard", "Dashboard", "Dash"], ["nomina", "Nomina", "Nómina"], ["ranking", "Ranking", "Rank"], ["comparar", "Comparar", "Comp."], ["historial", "Historial", "Hist."], ["reportes", "Reportes", "Rep."], ["config", "Config", "Config"]];
 
   // Set mobile viewport
   useEffect(() => {
@@ -5647,57 +5648,189 @@ export default function App() {
         )}
 
         {/* ── BONOS ── */}
-        {view === "bonos" && (() => {
-          const allBonuses = employees
-            .flatMap(e => (e.bonusHistory || []).map(b => ({ emp: e, month: b.month, amount: b.amount })))
-            .sort((a, b) => b.month.localeCompare(a.month));
-          const grouped = {};
-          allBonuses.forEach(b => { if (!grouped[b.month]) grouped[b.month] = []; grouped[b.month].push(b); });
-          const months = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
+        {view === "reportes" && (() => {
+          const REPORT_TABS = [["nomina","Nómina"],["bonos","Bonos"],["porarea","Por Área"]];
           return (
             <div className="space-y-5">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold text-gray-900">Historial de Bonos</h2>
-                <span className="text-sm text-gray-400">{allBonuses.length} bono{allBonuses.length !== 1 ? "s" : ""} registrados</span>
+              {/* Tab selector */}
+              <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-xl p-1 w-fit">
+                {REPORT_TABS.map(([id, label]) => (
+                  <button key={id} onClick={() => setReportTab(id)}
+                    className={"px-4 py-1.5 rounded-lg text-sm font-semibold transition-all " + (reportTab === id ? "bg-gray-900 text-white" : "text-gray-500 hover:text-gray-800")}>
+                    {label}
+                  </button>
+                ))}
               </div>
-              {allBonuses.length === 0 && (
-                <div className="bg-gray-50 border border-gray-200 rounded-2xl p-8 text-center text-gray-400 text-sm">No hay bonos registrados aún.</div>
-              )}
-              {months.map(m => {
-                const items = grouped[m];
-                const total = items.reduce((s, b) => s + b.amount, 0);
+
+              {/* ── NÓMINA ── */}
+              {reportTab === "nomina" && (() => {
+                const areas2 = Array.from(new Set(activeWithSnap.map(e => e.area || "Sin área"))).sort();
                 return (
-                  <div key={m} className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-                    <div className="flex items-center justify-between px-5 py-3 bg-teal-50 border-b border-teal-100">
-                      <span className="font-bold text-teal-800">{MONTHS[parseInt(m.slice(5,7))-1]} {m.slice(0,4)}</span>
-                      <span className="text-sm font-semibold text-teal-700">Total: U$ {total.toLocaleString("es-AR")}</span>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h2 className="text-xl font-bold text-gray-900">Nómina — {MONTHS[month]} {year}</h2>
+                      <button onClick={() => {
+                        const pts = PAYMENT_TYPES.filter(pt => activeWithSnap.some(e => e.payments[pt] > 0));
+                        const rows = areas2.map(area => {
+                          const emps = activeWithSnap.filter(e => (e.area||"Sin área") === area).sort((a,b) => a.name.localeCompare(b.name));
+                          const areaTotal = emps.reduce((s,e) => s + toARS(e.payments, dolar), 0);
+                          return `<tr style="background:#f0fdf4"><td colspan="${pts.length+1}" style="padding:6px 8px;font-weight:900;font-size:10px;text-transform:uppercase;color:#166534;letter-spacing:.5px">${area} (${emps.length})</td><td style="text-align:right;padding:6px 8px;font-weight:700;color:#166534">${fARS(areaTotal)}</td></tr>` +
+                            emps.map(e => `<tr><td style="padding:5px 8px">${e.name}</td>${pts.map(pt => `<td style="text-align:right;padding:5px 8px">${e.payments[pt] > 0 ? (pt==="ARS"||pt==="Mono" ? fARS(e.payments[pt]) : "U$ "+e.payments[pt].toLocaleString("es-AR")) : ""}</td>`).join("")}<td style="text-align:right;padding:5px 8px;font-weight:700">${fARS(toARS(e.payments,dolar))}</td></tr>`).join("");
+                        }).join("");
+                        const grandTotal = activeWithSnap.reduce((s,e) => s+toARS(e.payments,dolar),0);
+                        const w = window.open("","_blank");
+                        if (!w) { alert("Permitir popups para imprimir"); return; }
+                        w.document.write(`<!DOCTYPE html><html><head><meta charset='UTF-8'><style>@page{margin:12mm;size:A4 landscape}*{box-sizing:border-box;font-family:Arial,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}body{margin:0;padding:12px;font-size:10px;color:#111}table{width:100%;border-collapse:collapse}th{background:#374151;color:white;padding:6px 8px;font-size:9px;text-align:right;white-space:nowrap}th:first-child,th:last-child{text-align:left}tr:nth-child(even){background:#f9fafb}td{border-bottom:1px solid #e5e7eb}</style></head><body><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-bottom:2px solid #1f2937;padding-bottom:8px"><div style="font-size:16px;font-weight:900">Nómina — ${MONTHS[month]} ${year}</div><div style="font-size:10px;color:#6b7280">${activeWithSnap.length} empleados · Total: ${fARS(grandTotal)}</div></div><table><thead><tr><th style="text-align:left">Nombre</th>${pts.map(pt=>`<th>${PAYMENT_META[pt].label}</th>`).join("")}<th style="text-align:right">Total ARS</th></tr></thead><tbody>${rows}</tbody></table><div style="margin-top:12px;text-align:right;font-size:9px;color:#9ca3af">KiSP Nómina · ${new Date().toLocaleDateString("es-AR")}</div></body></html>`);
+                        w.document.close();
+                        w.onload = () => { w.focus(); w.print(); w.close(); };
+                        setTimeout(() => { try { w.focus(); w.print(); } catch(e){} }, 800);
+                      }} className="flex items-center gap-2 bg-gray-900 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-700">
+                        🖨 Imprimir
+                      </button>
                     </div>
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="text-xs text-gray-400 uppercase border-b border-gray-100">
-                          <th className="text-left px-5 py-2 font-medium">Empleado</th>
-                          <th className="text-left px-5 py-2 font-medium">Área</th>
-                          <th className="text-right px-5 py-2 font-medium">Monto</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {items.map((b, i) => (
-                          <tr key={i} className="border-b border-gray-50 hover:bg-gray-50 cursor-pointer" onClick={() => setProfileEmp(employees.find(e => e.id === b.emp.id))}>
-                            <td className="px-5 py-2.5">
-                              <div className="flex items-center gap-2">
-                                <div className={"w-6 h-6 " + avatarColor(b.emp.id) + " rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"}>{initials(b.emp.name)}</div>
-                                <span className="font-medium text-gray-800">{b.emp.name}</span>
-                              </div>
-                            </td>
-                            <td className="px-5 py-2.5 text-gray-400">{b.emp.area}</td>
-                            <td className="px-5 py-2.5 text-right font-mono font-semibold text-teal-700">U$ {b.amount.toLocaleString("es-AR")}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                    {areas2.map(area => {
+                      const emps = activeWithSnap.filter(e => (e.area||"Sin área") === area).sort((a,b) => a.name.localeCompare(b.name));
+                      const areaTotal = emps.reduce((s,e) => s + toARS(e.payments, dolar), 0);
+                      return (
+                        <div key={area} className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+                          <div className="flex items-center justify-between px-5 py-3 bg-green-50 border-b border-green-100">
+                            <span className="font-bold text-green-800">{area} <span className="font-normal text-green-600 text-xs">({emps.length} emp.)</span></span>
+                            <span className="text-sm font-semibold text-green-700">{fARS(areaTotal)}</span>
+                          </div>
+                          <table className="w-full text-sm">
+                            <tbody>
+                              {emps.map(e => (
+                                <tr key={e.id} className="border-b border-gray-50 hover:bg-gray-50 cursor-pointer" onClick={() => setProfileEmp(employees.find(x => x.id === e.id))}>
+                                  <td className="px-5 py-2">
+                                    <div className="flex items-center gap-2">
+                                      <div className={"w-6 h-6 " + avatarColor(e.id) + " rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"}>{initials(e.name)}</div>
+                                      <span className="font-medium text-gray-800">{e.name}</span>
+                                    </div>
+                                  </td>
+                                  <td className="px-5 py-2 text-gray-400 text-xs">{e.team} · {e.rank}</td>
+                                  <td className="px-5 py-2 text-right font-mono text-xs text-gray-600">
+                                    {PAYMENT_TYPES.filter(pt => e.payments[pt] > 0).map(pt => (
+                                      <span key={pt} className="ml-2">{PAYMENT_META[pt].label} {pt==="ARS"||pt==="Mono" ? fARS(e.payments[pt]) : "U$"+e.payments[pt].toLocaleString("es-AR")}</span>
+                                    ))}
+                                  </td>
+                                  <td className="px-5 py-2 text-right font-bold text-gray-800">{fARS(toARS(e.payments, dolar))}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      );
+                    })}
                   </div>
                 );
-              })}
+              })()}
+
+              {/* ── BONOS ── */}
+              {reportTab === "bonos" && (() => {
+                const allBonuses = employees
+                  .flatMap(e => (e.bonusHistory || []).map(b => ({ emp: e, month: b.month, amount: b.amount })))
+                  .sort((a, b) => b.month.localeCompare(a.month));
+                const grouped = {};
+                allBonuses.forEach(b => { if (!grouped[b.month]) grouped[b.month] = []; grouped[b.month].push(b); });
+                const months2 = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
+                return (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h2 className="text-xl font-bold text-gray-900">Historial de Bonos</h2>
+                      <span className="text-sm text-gray-400">{allBonuses.length} bono{allBonuses.length !== 1 ? "s" : ""} registrados</span>
+                    </div>
+                    {allBonuses.length === 0 && (
+                      <div className="bg-gray-50 border border-gray-200 rounded-2xl p-8 text-center text-gray-400 text-sm">No hay bonos registrados aún.</div>
+                    )}
+                    {months2.map(m => {
+                      const items = grouped[m];
+                      const total = items.reduce((s, b) => s + b.amount, 0);
+                      return (
+                        <div key={m} className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+                          <div className="flex items-center justify-between px-5 py-3 bg-teal-50 border-b border-teal-100">
+                            <span className="font-bold text-teal-800">{MONTHS[parseInt(m.slice(5,7))-1]} {m.slice(0,4)}</span>
+                            <span className="text-sm font-semibold text-teal-700">Total: U$ {total.toLocaleString("es-AR")}</span>
+                          </div>
+                          <table className="w-full text-sm">
+                            <thead><tr className="text-xs text-gray-400 uppercase border-b border-gray-100">
+                              <th className="text-left px-5 py-2 font-medium">Empleado</th>
+                              <th className="text-left px-5 py-2 font-medium">Área</th>
+                              <th className="text-right px-5 py-2 font-medium">Monto</th>
+                            </tr></thead>
+                            <tbody>
+                              {items.map((b, i) => (
+                                <tr key={i} className="border-b border-gray-50 hover:bg-gray-50 cursor-pointer" onClick={() => setProfileEmp(employees.find(e => e.id === b.emp.id))}>
+                                  <td className="px-5 py-2.5">
+                                    <div className="flex items-center gap-2">
+                                      <div className={"w-6 h-6 " + avatarColor(b.emp.id) + " rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"}>{initials(b.emp.name)}</div>
+                                      <span className="font-medium text-gray-800">{b.emp.name}</span>
+                                    </div>
+                                  </td>
+                                  <td className="px-5 py-2.5 text-gray-400">{b.emp.area}</td>
+                                  <td className="px-5 py-2.5 text-right font-mono font-semibold text-teal-700">U$ {b.amount.toLocaleString("es-AR")}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+
+              {/* ── POR ÁREA ── */}
+              {reportTab === "porarea" && (() => {
+                const allAreas = Array.from(new Set(activeWithSnap.map(e => e.area || "Sin área"))).sort();
+                return (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h2 className="text-xl font-bold text-gray-900">Por Área — {MONTHS[month]} {year}</h2>
+                      <span className="text-sm text-gray-400">{activeWithSnap.length} empleados activos</span>
+                    </div>
+                    {allAreas.map(area => {
+                      const emps = activeWithSnap.filter(e => (e.area||"Sin área") === area).sort((a,b) => a.name.localeCompare(b.name));
+                      const totalARS = emps.reduce((s,e) => s + toARS(e.payments, dolar), 0);
+                      const totalUSD = emps.reduce((s,e) => s + (e.payments.Crypto||0)+(e.payments.Canada||0)+(e.payments.Healthcare||0)+(e.payments.Allowance||0)+(e.payments.Cash2||0)+(e.payments.Bonus||0), 0);
+                      return (
+                        <div key={area} className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+                          <div className="flex items-center justify-between px-5 py-3 bg-blue-50 border-b border-blue-100">
+                            <div className="flex items-center gap-3">
+                              <span className="font-bold text-blue-800">{area}</span>
+                              <span className="text-xs bg-blue-100 text-blue-600 font-semibold px-2 py-0.5 rounded-full">{emps.length} emp.</span>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-sm font-bold text-blue-800">{fARS(totalARS)}</div>
+                              {totalUSD > 0 && <div className="text-xs text-blue-500">U$ {totalUSD.toLocaleString("es-AR")}</div>}
+                            </div>
+                          </div>
+                          <table className="w-full text-sm">
+                            <thead><tr className="text-xs text-gray-400 uppercase border-b border-gray-100">
+                              <th className="text-left px-5 py-2 font-medium">Nombre</th>
+                              <th className="text-left px-5 py-2 font-medium">Team / Cargo</th>
+                              <th className="text-right px-5 py-2 font-medium">Total ARS</th>
+                            </tr></thead>
+                            <tbody>
+                              {emps.map(e => (
+                                <tr key={e.id} className="border-b border-gray-50 hover:bg-gray-50 cursor-pointer" onClick={() => setProfileEmp(employees.find(x => x.id === e.id))}>
+                                  <td className="px-5 py-2.5">
+                                    <div className="flex items-center gap-2">
+                                      <div className={"w-6 h-6 " + avatarColor(e.id) + " rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"}>{initials(e.name)}</div>
+                                      <span className="font-medium text-gray-800">{e.name}</span>
+                                    </div>
+                                  </td>
+                                  <td className="px-5 py-2.5 text-gray-400 text-xs">{e.team} · {e.rank}</td>
+                                  <td className="px-5 py-2.5 text-right font-bold text-gray-800">{fARS(toARS(e.payments, dolar))}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </div>
           );
         })()}
