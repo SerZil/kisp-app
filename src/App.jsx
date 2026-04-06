@@ -3951,8 +3951,8 @@ export default function App() {
   const [ranks, setRanks]         = useState(RANKS_INIT);
   const [areas, setAreas]         = useState(AREAS);
 
-  const [year, setYear]           = useState(2026);
-  const [month, setMonth]         = useState(2);
+  const [year, setYear]           = useState(() => new Date().getFullYear());
+  const [month, setMonth]         = useState(() => new Date().getMonth());
   const [view, setView]           = useState("nomina");
   const [payFilter, setPayFilter] = useState(null);
   const [teamFilter, setTeamFilter] = useState("All");
