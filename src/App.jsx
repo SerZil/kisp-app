@@ -4240,7 +4240,7 @@ export default function App() {
       .map(e => {
         const snap = snapshotAt(e, key + "-15");
         const payments = snap ? { ...snap.payments } : {};
-        if (!e.bonusMonth || e.bonusMonth !== key) payments.Bonus = 0;
+        payments.Bonus = (e.bonusMonth && e.bonusMonth === key) ? (e.bonusAmount || 0) : 0;
         return { ...e, rank: snap ? snap.rank : "", payments };
       });
   }, [employees, year, month, key]);
@@ -4432,16 +4432,15 @@ export default function App() {
       if (newCash2 !== oldCash2 && newCash2 > 0) {
         openGmailDraft("cash2Change", { ...emp, _monthYear: monthYear });
       }
-      const oldBonus = existing ? (existing.history.length > 0 ? (existing.history[existing.history.length-1].payments?.Bonus || 0) : (existing.payments?.Bonus || 0)) : 0;
+      const oldBonus = existing?.bonusAmount || 0;
       const newBonus = emp.payments ? (emp.payments.Bonus || 0) : 0;
       if (newBonus !== oldBonus && newBonus > 0) {
         openGmailDraft("bonusChange", { ...emp, _monthYear: monthYear });
       }
       if (newBonus === 0 && oldBonus > 0) {
-        // Clear bonus from ALL history snapshots
         setEmployees(p => p.map(e => {
           if (e.id !== emp.id) return e;
-          return { ...emp, bonusMonth: "", history: e.history.map(s => {
+          return { ...emp, bonusAmount: 0, bonusMonth: "", history: e.history.map(s => {
             const { Bonus, ...rest } = s.payments || {};
             return { ...s, payments: rest };
           })};
@@ -4473,7 +4472,8 @@ export default function App() {
         const existing = employees.find(ex => ex.id === emp.id);
         const lastSnap = existing && existing.history.length > 0 ? existing.history[existing.history.length - 1] : null;
         // Strip zero-value keys so {Canada:1500, Crypto:0} == {Canada:1500}
-        const stripZeros = o => Object.fromEntries(Object.entries(o || {}).filter(([,v]) => v > 0));
+        // Bonus is intentionally excluded from history snapshots (stored in bonusAmount/bonusMonth instead)
+        const stripZeros = o => Object.fromEntries(Object.entries(o || {}).filter(([k, v]) => v > 0 && k !== "Bonus"));
         const cleanPayments = stripZeros(emp.payments);
         const lastPayments = stripZeros(lastSnap?.payments);
         const sortedStr = o => JSON.stringify(Object.fromEntries(Object.entries(o).sort()));
@@ -4508,7 +4508,9 @@ export default function App() {
             }
           }
         }
-        return { ...emp, history: newHistory };
+        // Always strip Bonus from ALL snapshots (bonus lives in bonusAmount/bonusMonth, not in history)
+        newHistory = newHistory.map(s => { const { Bonus, ...rest } = s.payments || {}; return { ...s, payments: rest }; });
+        return { ...emp, bonusAmount: emp.payments?.Bonus || 0, history: newHistory };
       }));
     } else {
       const newEmp = { ...emp, id: Date.now(), history: [{ from: emp.activeFrom || new Date().toISOString().slice(0, 10), rank: emp.rank, payments: { ...emp.payments }, note: "Ingreso" }] };
@@ -5994,8 +5996,7 @@ function EmployeeModal({ data, mode, teams, ranks, areas, supervisors, onSave, o
       let snap = sorted[0];
       for (const s of sorted) { if (s.from <= today) snap = s; }
       if (snap && Object.values(snap.payments || {}).some(v => v > 0)) {
-        const p = { ...snap.payments };
-        if (!data.bonusMonth) p.Bonus = 0;
+        const p = { ...snap.payments, Bonus: data.bonusAmount || 0 };
         return p;
       }
     }
