@@ -4446,7 +4446,10 @@ export default function App() {
       const oldBonus = existing?.bonusAmount || 0;
       const newBonus = emp.payments ? (emp.payments.Bonus || 0) : 0;
       if (newBonus !== oldBonus && newBonus > 0) {
-        openGmailDraft("bonusChange", { ...emp, _monthYear: monthYear });
+        const bonusMonthYear = emp.bonusMonth
+          ? new Date(emp.bonusMonth + "-15").toLocaleDateString("en-US", { year:"numeric", month:"long" })
+          : monthYear;
+        openGmailDraft("bonusChange", { ...emp, _monthYear: bonusMonthYear });
       }
       if (newBonus > 0 && emp.bonusMonth) {
         // Replace entry for same month if exists, otherwise append
