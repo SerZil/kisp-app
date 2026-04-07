@@ -4256,7 +4256,7 @@ export default function App() {
         const snap = snapshotAt(e, key + "-15");
         const payments = snap ? { ...snap.payments } : {};
         payments.Bonus = (e.bonusHistory || []).find(b => b.month === key)?.amount || 0;
-        return { ...e, rank: snap ? snap.rank : "", payments };
+        return { ...e, rank: (snap && snap.rank) ? snap.rank : (e.rank || ""), payments };
       });
   }, [employees, year, month, key]);
 
