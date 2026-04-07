@@ -5647,9 +5647,11 @@ export default function App() {
           </div>
         )}
 
-        {/* ── BONOS ── */}
+        {/* ── REPORTES ── */}
         {view === "reportes" && (() => {
           const REPORT_TABS = [["nomina","Nómina"],["bonos","Bonos"],["porarea","Por Área"]];
+          const pCSS = `@page{margin:12mm;size:A4 landscape}*{box-sizing:border-box;font-family:Arial,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}body{margin:0;padding:12px;font-size:10px;color:#111}table{width:100%;border-collapse:collapse}th{background:#374151;color:white;padding:6px 8px;font-size:9px;text-align:right;white-space:nowrap}th:first-child{text-align:left}tr:nth-child(even){background:#f9fafb}td{border-bottom:1px solid #e5e7eb}`;
+          const openPrint = (html) => { const w=window.open("","_blank"); if(!w){alert("Permitir popups para imprimir");return;} w.document.write(html); w.document.close(); w.onload=()=>{w.focus();w.print();w.close();}; setTimeout(()=>{try{w.focus();w.print();}catch(e){}},800); };
           return (
             <div className="space-y-5">
               {/* Tab selector */}
@@ -5667,26 +5669,124 @@ export default function App() {
                 const areas2 = Array.from(new Set(activeWithSnap.map(e => e.area || "Sin área"))).sort();
                 return (
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
                       <h2 className="text-xl font-bold text-gray-900">Nómina — {MONTHS[month]} {year}</h2>
+                      <div className="flex gap-2">
                       <button onClick={() => {
-                        const pts = PAYMENT_TYPES.filter(pt => activeWithSnap.some(e => e.payments[pt] > 0));
-                        const rows = areas2.map(area => {
-                          const emps = activeWithSnap.filter(e => (e.area||"Sin área") === area).sort((a,b) => a.name.localeCompare(b.name));
-                          const areaTotal = emps.reduce((s,e) => s + toARS(e.payments, dolar), 0);
-                          return `<tr style="background:#f0fdf4"><td colspan="${pts.length+1}" style="padding:6px 8px;font-weight:900;font-size:10px;text-transform:uppercase;color:#166534;letter-spacing:.5px">${area} (${emps.length})</td><td style="text-align:right;padding:6px 8px;font-weight:700;color:#166534">${fARS(areaTotal)}</td></tr>` +
-                            emps.map(e => `<tr><td style="padding:5px 8px">${e.name}</td>${pts.map(pt => `<td style="text-align:right;padding:5px 8px">${e.payments[pt] > 0 ? (pt==="ARS"||pt==="Mono" ? fARS(e.payments[pt]) : "U$ "+e.payments[pt].toLocaleString("es-AR")) : ""}</td>`).join("")}<td style="text-align:right;padding:5px 8px;font-weight:700">${fARS(toARS(e.payments,dolar))}</td></tr>`).join("");
+                        // SOLO NOMBRES
+                        const emps2 = activeWithSnap.slice().sort((a,b) => (a.area||"").localeCompare(b.area||"") || a.name.localeCompare(b.name));
+                        const grouped2 = {};
+                        emps2.forEach(e => { if (!grouped2[e.area||"Sin área"]) grouped2[e.area||"Sin área"] = []; grouped2[e.area||"Sin área"].push(e); });
+                        const rows2 = Object.entries(grouped2).map(([area, list]) =>
+                          `<tr><td colspan="3" style="padding:8px;background:#1f2937;color:white;font-weight:700;font-size:11px">${area} — ${list.length} empleados</td></tr>` +
+                          list.map((e,i) => `<tr${i%2===1?' style="background:#f9fafb"':''}><td style="padding:5px 8px">${e.name}</td><td style="padding:5px 8px;color:#6b7280">${e.team||""}</td><td style="padding:5px 8px;color:#6b7280">${e.rank||""}</td></tr>`).join("")
+                        ).join("");
+                        openPrint(`<!DOCTYPE html><html><head><meta charset='UTF-8'><style>${pCSS}</style></head><body><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-bottom:2px solid #1f2937;padding-bottom:8px"><div style="font-size:16px;font-weight:900">Nómina — ${MONTHS[month]} ${year} · Listado de empleados</div><div style="font-size:10px;color:#6b7280">${activeWithSnap.length} empleados activos</div></div><table><thead><tr><th style="text-align:left">Nombre</th><th style="text-align:left">Team</th><th style="text-align:left">Cargo</th></tr></thead><tbody>${rows2}</tbody></table><div style="margin-top:12px;text-align:right;font-size:9px;color:#9ca3af">KiSP Nómina · ${new Date().toLocaleDateString("es-AR")}</div></body></html>`);
+                      }} className="flex items-center gap-1 bg-gray-600 text-white px-3 py-2 rounded-xl text-sm font-bold hover:bg-gray-700">
+                        🖨 Solo nombres
+                      </button>
+                      <button onClick={() => {
+                        // CON MONTOS
+                        const emps = activeWithSnap.slice().sort((a,b) => (a.area||"").localeCompare(b.area||"") || a.name.localeCompare(b.name));
+                        const grouped = {};
+                        emps.forEach(e => { if (!grouped[e.area]) grouped[e.area] = []; grouped[e.area].push(e); });
+                        const dolarVal = dolarMap[key] || 0;
+                        const pts = PAYMENT_TYPES;
+                        const rows = Object.entries(grouped).map(([area, list]) => {
+                          const empRows = list.map(e => `<tr>
+                            <td style="padding:5px 8px;font-size:10px">${e.name}</td>
+                            ${pts.map(pt => `<td style="padding:5px 8px;font-size:10px;text-align:right">${e.payments[pt] > 0 ? (pt==="ARS"||pt==="Mono" ? "$"+Math.round(e.payments[pt]).toLocaleString("es-AR") : "U$"+e.payments[pt].toLocaleString("es-AR")) : ""}</td>`).join("")}
+                            <td style="padding:5px 8px;font-size:10px;text-align:right;font-weight:700">${fARS(toARS(e.payments,dolarVal))}</td>
+                          </tr>`).join("");
+                          const totPay = {};
+                          pts.forEach(pt => { totPay[pt] = list.reduce((s,e) => s+(e.payments[pt]||0),0); });
+                          const totARS = list.reduce((s,e) => s+toARS(e.payments,dolarVal),0);
+                          return `
+                            <tr><td colspan="${pts.length+2}" style="padding:8px;background:#1f2937;color:white;font-weight:700;font-size:11px">${area} — ${list.length} empleados</td></tr>
+                            ${empRows}
+                            <tr style="background:#f3f4f6;font-weight:700">
+                              <td style="padding:5px 8px;font-size:10px">Subtotal</td>
+                              ${pts.map(pt => `<td style="padding:5px 8px;font-size:10px;text-align:right">${totPay[pt]>0?(pt==="ARS"||pt==="Mono"?"$"+Math.round(totPay[pt]).toLocaleString("es-AR"):"U$"+totPay[pt].toLocaleString("es-AR")):""}</td>`).join("")}
+                              <td style="padding:5px 8px;font-size:10px;text-align:right">${fARS(totARS)}</td>
+                            </tr>`;
                         }).join("");
-                        const grandTotal = activeWithSnap.reduce((s,e) => s+toARS(e.payments,dolar),0);
+                        const grandTotal = activeWithSnap.reduce((s,e) => s+toARS(e.payments,dolarVal),0);
+                        const flujoCrypto2 = (payTotals.Crypto?.rawSum||0)+(payTotals.HealthCrypto?.rawSum||0)+(payTotals.AllowanceCrypto?.rawSum||0);
+                        const flujoCanada2 = (payTotals.Canada?.rawSum||0)+(payTotals.HealthCanada?.rawSum||0)+(payTotals.AllowanceCanada?.rawSum||0);
+                        const monoUSD2 = dolarVal > 0 ? (payTotals.Mono?.rawSum||0)/dolarVal : 0;
+                        const flujoBsAs2 = (payTotals.Cash2?.rawSum||0)+(payTotals.Bonus?.rawSum||0)+(payTotals.AllowanceBsAs?.rawSum||0)+monoUSD2;
+                        const totalFlujoUSD2 = flujoCrypto2 + flujoCanada2 + flujoBsAs2;
+                        const flujos2 = [
+                          { label:"Crypto", color:"#7c3aed", detail:[
+                            { label:"Salarios USDT", val:payTotals.Crypto?.rawSum||0 },
+                            { label:"Healthcare", val:payTotals.HealthCrypto?.rawSum||0 },
+                            { label:"Allowance", val:payTotals.AllowanceCrypto?.rawSum||0 },
+                          ], total: flujoCrypto2 },
+                          { label:"Canada USD", color:"#b91c1c", detail:[
+                            { label:"Salarios Canada", val:payTotals.Canada?.rawSum||0 },
+                            { label:"Healthcare", val:payTotals.HealthCanada?.rawSum||0 },
+                            { label:"Allowance", val:payTotals.AllowanceCanada?.rawSum||0 },
+                          ], total: flujoCanada2 },
+                          { label:"Buenos Aires", color:"#0369a1", detail:[
+                            { label:"Cash 2", val:payTotals.Cash2?.rawSum||0 },
+                            { label:"Bonus", val:payTotals.Bonus?.rawSum||0 },
+                            { label:"Allowance", val:payTotals.AllowanceBsAs?.rawSum||0 },
+                            { label:"Monotributo (equiv USD)", val:monoUSD2 },
+                          ], total: flujoBsAs2 },
+                        ];
                         const w = window.open("","_blank");
                         if (!w) { alert("Permitir popups para imprimir"); return; }
-                        w.document.write(`<!DOCTYPE html><html><head><meta charset='UTF-8'><style>@page{margin:12mm;size:A4 landscape}*{box-sizing:border-box;font-family:Arial,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}body{margin:0;padding:12px;font-size:10px;color:#111}table{width:100%;border-collapse:collapse}th{background:#374151;color:white;padding:6px 8px;font-size:9px;text-align:right;white-space:nowrap}th:first-child,th:last-child{text-align:left}tr:nth-child(even){background:#f9fafb}td{border-bottom:1px solid #e5e7eb}</style></head><body><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-bottom:2px solid #1f2937;padding-bottom:8px"><div style="font-size:16px;font-weight:900">Nómina — ${MONTHS[month]} ${year}</div><div style="font-size:10px;color:#6b7280">${activeWithSnap.length} empleados · Total: ${fARS(grandTotal)}</div></div><table><thead><tr><th style="text-align:left">Nombre</th>${pts.map(pt=>`<th>${PAYMENT_META[pt].label}</th>`).join("")}<th style="text-align:right">Total ARS</th></tr></thead><tbody>${rows}</tbody></table><div style="margin-top:12px;text-align:right;font-size:9px;color:#9ca3af">KiSP Nómina · ${new Date().toLocaleDateString("es-AR")}</div></body></html>`);
+                        w.document.write(`<!DOCTYPE html><html><head><meta charset='UTF-8'><style>
+                          @page{margin:12mm;size:A4 landscape}
+                          *{box-sizing:border-box;font-family:Arial,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+                          body{margin:0;padding:12px;font-size:10px;color:#111}
+                          table{width:100%;border-collapse:collapse}
+                          th{background:#374151;color:white;padding:6px 8px;font-size:9px;text-align:right;white-space:nowrap}
+                          th:first-child{text-align:left}
+                          tr:nth-child(even){background:#f9fafb}
+                          td{border-bottom:1px solid #e5e7eb}
+                        </style></head><body>
+                          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-bottom:2px solid #1f2937;padding-bottom:8px">
+                            <div style="font-size:16px;font-weight:900">Nómina — ${MONTHS[month]} ${year}</div>
+                            <div style="font-size:10px;color:#6b7280">${activeWithSnap.length} empleados activos · Total: ${fARS(grandTotal)}</div>
+                          </div>
+                          <table>
+                            <thead><tr>
+                              <th style="text-align:left">Nombre</th>
+                              ${pts.map(pt => `<th>${PAYMENT_META[pt].label}</th>`).join("")}
+                              <th>Total ARS</th>
+                            </tr></thead>
+                            <tbody>${rows}</tbody>
+                          </table>
+                          <div style="margin-top:16px;border-top:2px solid #1f2937;padding-top:10px">
+                            <div style="font-size:11px;font-weight:900;margin-bottom:8px;text-transform:uppercase;letter-spacing:1px;color:#374151">Flujos por origen — ${MONTHS[month]} ${year}</div>
+                            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px">
+                              ${flujos2.map(f => `
+                                <div style="border:1px solid #e5e7eb;border-radius:6px;padding:10px;border-left:4px solid ${f.color}">
+                                  <div style="font-size:12px;font-weight:900;color:${f.color};margin-bottom:6px">${f.label}</div>
+                                  ${f.detail.filter(d => d.val > 0).map(d => `
+                                    <div style="display:flex;justify-content:space-between;font-size:9px;color:#6b7280;margin-bottom:2px">
+                                      <span>${d.label}</span><span>U$ ${Math.round(d.val).toLocaleString("es-AR")}</span>
+                                    </div>`).join("")}
+                                  <div style="border-top:1px solid #e5e7eb;margin-top:6px;padding-top:4px;display:flex;justify-content:space-between;font-size:11px;font-weight:900;color:${f.color}">
+                                    <span>Total</span><span>U$ ${Math.round(f.total).toLocaleString("es-AR")}</span>
+                                  </div>
+                                </div>`).join("")}
+                            </div>
+                            <div style="background:#1f2937;color:white;border-radius:6px;padding:8px 14px;display:flex;justify-content:space-between;align-items:center">
+                              <span style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#9ca3af">Total USD nómina</span>
+                              <span style="font-size:16px;font-weight:900">U$ ${Math.round(totalFlujoUSD2).toLocaleString("es-AR")}</span>
+                            </div>
+                          </div>
+                          <div style="margin-top:12px;text-align:right;font-size:9px;color:#9ca3af">KiSP Nómina · Generado ${new Date().toLocaleDateString("es-AR")}</div>
+                        </body></html>`);
                         w.document.close();
                         w.onload = () => { w.focus(); w.print(); w.close(); };
                         setTimeout(() => { try { w.focus(); w.print(); } catch(e){} }, 800);
-                      }} className="flex items-center gap-2 bg-gray-900 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-700">
-                        🖨 Imprimir
+                      }} className="flex items-center gap-1 bg-blue-600 text-white px-3 py-2 rounded-xl text-sm font-bold hover:bg-blue-700">
+                        🖨 Con montos
                       </button>
+                      </div>
                     </div>
                     {areas2.map(area => {
                       const emps = activeWithSnap.filter(e => (e.area||"Sin área") === area).sort((a,b) => a.name.localeCompare(b.name));
@@ -5737,7 +5837,45 @@ export default function App() {
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <h2 className="text-xl font-bold text-gray-900">Historial de Bonos</h2>
-                      <span className="text-sm text-gray-400">{allBonuses.length} bono{allBonuses.length !== 1 ? "s" : ""} registrados</span>
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm text-gray-400">{allBonuses.length} bono{allBonuses.length !== 1 ? "s" : ""} registrados</span>
+                        <button onClick={() => {
+                          const grandTotalBonos = allBonuses.reduce((s, b) => s + b.amount, 0);
+                          const bonusRows = months2.map(m => {
+                            const items = grouped[m];
+                            const mTotal = items.reduce((s, b) => s + b.amount, 0);
+                            const monthLabel = `${MONTHS[parseInt(m.slice(5,7))-1]} ${m.slice(0,4)}`;
+                            const empRows = items.map(b => `<tr>
+                              <td style="padding:5px 8px;font-size:10px">${b.emp.name}</td>
+                              <td style="padding:5px 8px;font-size:10px">${b.emp.area||""}</td>
+                              <td style="padding:5px 8px;font-size:10px;text-align:right;font-weight:600;color:#0d9488">U$ ${b.amount.toLocaleString("es-AR")}</td>
+                            </tr>`).join("");
+                            return `
+                              <tr><td colspan="3" style="padding:8px;background:#1f2937;color:white;font-weight:700;font-size:11px">${monthLabel} — ${items.length} bono${items.length !== 1 ? "s" : ""}</td></tr>
+                              ${empRows}
+                              <tr style="background:#f3f4f6;font-weight:700">
+                                <td style="padding:5px 8px;font-size:10px" colspan="2">Subtotal</td>
+                                <td style="padding:5px 8px;font-size:10px;text-align:right">U$ ${mTotal.toLocaleString("es-AR")}</td>
+                              </tr>`;
+                          }).join("");
+                          const w = window.open("","_blank");
+                          if (!w) { alert("Permitir popups para imprimir"); return; }
+                          openPrint(`<!DOCTYPE html><html><head><meta charset='UTF-8'><style>${pCSS}</style></head><body><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-bottom:2px solid #1f2937;padding-bottom:8px"><div style="font-size:16px;font-weight:900">Bonos — Historial Completo</div><div style="font-size:10px;color:#6b7280">${allBonuses.length} registros · ${new Date().toLocaleDateString("es-AR")}</div></div><table><thead><tr><th style="text-align:left">Nombre</th><th style="text-align:left">Área</th><th>Monto USD</th></tr></thead><tbody>${bonusRows}</tbody></table><div style="margin-top:16px;background:#1f2937;color:white;border-radius:6px;padding:8px 14px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#9ca3af">Total general de bonos</span><span style="font-size:16px;font-weight:900">U$ ${grandTotalBonos.toLocaleString("es-AR")}</span></div><div style="margin-top:12px;text-align:right;font-size:9px;color:#9ca3af">KiSP Nómina · ${new Date().toLocaleDateString("es-AR")}</div></body></html>`);
+                        }} className="flex items-center gap-1 bg-blue-600 text-white px-3 py-2 rounded-xl text-sm font-bold hover:bg-blue-700">
+                          🖨 Con montos
+                        </button>
+                        <button onClick={() => {
+                          const rows2 = months2.map(m => {
+                            const items = grouped[m];
+                            const monthLabel = `${MONTHS[parseInt(m.slice(5,7))-1]} ${m.slice(0,4)}`;
+                            return `<tr><td colspan="2" style="padding:8px;background:#1f2937;color:white;font-weight:700;font-size:11px">${monthLabel} — ${items.length} bono${items.length!==1?"s":""}</td></tr>` +
+                              items.map((b,i) => `<tr${i%2===1?' style="background:#f9fafb"':''}><td style="padding:5px 8px">${b.emp.name}</td><td style="padding:5px 8px;color:#6b7280">${b.emp.area||""}</td></tr>`).join("");
+                          }).join("");
+                          openPrint(`<!DOCTYPE html><html><head><meta charset='UTF-8'><style>${pCSS}</style></head><body><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-bottom:2px solid #1f2937;padding-bottom:8px"><div style="font-size:16px;font-weight:900">Bonos — Listado</div><div style="font-size:10px;color:#6b7280">${allBonuses.length} registros · ${new Date().toLocaleDateString("es-AR")}</div></div><table><thead><tr><th style="text-align:left">Nombre</th><th style="text-align:left">Área</th></tr></thead><tbody>${rows2}</tbody></table><div style="margin-top:12px;text-align:right;font-size:9px;color:#9ca3af">KiSP Nómina · ${new Date().toLocaleDateString("es-AR")}</div></body></html>`);
+                        }} className="flex items-center gap-1 bg-gray-600 text-white px-3 py-2 rounded-xl text-sm font-bold hover:bg-gray-700">
+                          🖨 Solo nombres
+                        </button>
+                      </div>
                     </div>
                     {allBonuses.length === 0 && (
                       <div className="bg-gray-50 border border-gray-200 rounded-2xl p-8 text-center text-gray-400 text-sm">No hay bonos registrados aún.</div>
@@ -5786,7 +5924,42 @@ export default function App() {
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <h2 className="text-xl font-bold text-gray-900">Por Área — {MONTHS[month]} {year}</h2>
-                      <span className="text-sm text-gray-400">{activeWithSnap.length} empleados activos</span>
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm text-gray-400">{activeWithSnap.length} empleados activos</span>
+                        <button onClick={() => {
+                          const dolarVal2 = dolarMap[key] || 0;
+                          const grandTotalARS = activeWithSnap.reduce((s,e) => s + toARS(e.payments, dolarVal2), 0);
+                          const areaRows = allAreas.map(area => {
+                            const emps2 = activeWithSnap.filter(e => (e.area||"Sin área") === area).sort((a,b) => a.name.localeCompare(b.name));
+                            const totARS = emps2.reduce((s,e) => s + toARS(e.payments, dolarVal2), 0);
+                            const empRows = emps2.map(e => `<tr>
+                              <td style="padding:5px 8px;font-size:10px">${e.name}</td>
+                              <td style="padding:5px 8px;font-size:10px">${e.team||""} · ${e.rank||""}</td>
+                              <td style="padding:5px 8px;font-size:10px;text-align:right;font-weight:700">${fARS(toARS(e.payments, dolarVal2))}</td>
+                            </tr>`).join("");
+                            return `
+                              <tr><td colspan="3" style="padding:8px;background:#1f2937;color:white;font-weight:700;font-size:11px">${area} — ${emps2.length} empleados</td></tr>
+                              ${empRows}
+                              <tr style="background:#f3f4f6;font-weight:700">
+                                <td style="padding:5px 8px;font-size:10px" colspan="2">Subtotal ${area}</td>
+                                <td style="padding:5px 8px;font-size:10px;text-align:right">${fARS(totARS)}</td>
+                              </tr>`;
+                          }).join("");
+                          openPrint(`<!DOCTYPE html><html><head><meta charset='UTF-8'><style>${pCSS}</style></head><body><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-bottom:2px solid #1f2937;padding-bottom:8px"><div style="font-size:16px;font-weight:900">Nómina por Área — ${MONTHS[month]} ${year}</div><div style="font-size:10px;color:#6b7280">${activeWithSnap.length} empleados activos · Total: ${fARS(grandTotalARS)}</div></div><table><thead><tr><th style="text-align:left">Nombre</th><th style="text-align:left">Team / Cargo</th><th>Total ARS</th></tr></thead><tbody>${areaRows}</tbody></table><div style="margin-top:16px;background:#1f2937;color:white;border-radius:6px;padding:8px 14px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#9ca3af">Total general</span><span style="font-size:16px;font-weight:900">${fARS(grandTotalARS)}</span></div><div style="margin-top:12px;text-align:right;font-size:9px;color:#9ca3af">KiSP Nómina · ${new Date().toLocaleDateString("es-AR")}</div></body></html>`);
+                        }} className="flex items-center gap-1 bg-blue-600 text-white px-3 py-2 rounded-xl text-sm font-bold hover:bg-blue-700">
+                          🖨 Con montos
+                        </button>
+                        <button onClick={() => {
+                          const rows2 = allAreas.map(area => {
+                            const emps2 = activeWithSnap.filter(e => (e.area||"Sin área") === area).sort((a,b) => a.name.localeCompare(b.name));
+                            return `<tr><td colspan="2" style="padding:8px;background:#1f2937;color:white;font-weight:700;font-size:11px">${area} — ${emps2.length} empleados</td></tr>` +
+                              emps2.map((e,i) => `<tr${i%2===1?' style="background:#f9fafb"':''}><td style="padding:5px 8px">${e.name}</td><td style="padding:5px 8px;color:#6b7280">${e.team||""} · ${e.rank||""}</td></tr>`).join("");
+                          }).join("");
+                          openPrint(`<!DOCTYPE html><html><head><meta charset='UTF-8'><style>${pCSS}</style></head><body><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-bottom:2px solid #1f2937;padding-bottom:8px"><div style="font-size:16px;font-weight:900">Nómina por Área — ${MONTHS[month]} ${year} · Listado</div><div style="font-size:10px;color:#6b7280">${activeWithSnap.length} empleados activos</div></div><table><thead><tr><th style="text-align:left">Nombre</th><th style="text-align:left">Team / Cargo</th></tr></thead><tbody>${rows2}</tbody></table><div style="margin-top:12px;text-align:right;font-size:9px;color:#9ca3af">KiSP Nómina · ${new Date().toLocaleDateString("es-AR")}</div></body></html>`);
+                        }} className="flex items-center gap-1 bg-gray-600 text-white px-3 py-2 rounded-xl text-sm font-bold hover:bg-gray-700">
+                          🖨 Solo nombres
+                        </button>
+                      </div>
                     </div>
                     {allAreas.map(area => {
                       const emps = activeWithSnap.filter(e => (e.area||"Sin área") === area).sort((a,b) => a.name.localeCompare(b.name));
