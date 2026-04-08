@@ -3243,7 +3243,7 @@ function Toast({ msg, type }) {
 }
 
 // ── PRINT PREVIEW ─────────────────────────────────────────────────────────────
-function PrintPreview({ emp, dolarMap, ipcMap, ranks, chartData, year, month, rangeFrom, rangeTo, onClose }) {
+function PrintPreview({ emp, dolarMap, dolarCryptoMap, ipcMap, ranks, chartData, year, month, rangeFrom, rangeTo, onClose }) {
   const printRef = useRef();
   const sorted = [...emp.history].sort((a, b) => a.from.localeCompare(b.from));
   const now = new Date();
@@ -3277,8 +3277,8 @@ function PrintPreview({ emp, dolarMap, ipcMap, ranks, chartData, year, month, ra
     const kN = mkey(new Date(sN.from).getFullYear(), new Date(sN.from).getMonth());
     const d0Blue = dolarMap[k0] || 1420;
     const dNBlue = dolarMap[kN] || 1420;
-    const d0Crypto = dolarCryptoMap[k0] || d0Blue;
-    const dNCrypto = dolarCryptoMap[kN] || dNBlue;
+    const d0Crypto = (dolarCryptoMap || {})[k0] || d0Blue;
+    const dNCrypto = (dolarCryptoMap || {})[kN] || dNBlue;
     const first = useCrypto ? toARSProfile(s0.payments, d0Blue, d0Crypto) : toARS(s0.payments, d0Blue);
     const last  = useCrypto ? toARSProfile(sN.payments, dNBlue, dNCrypto) : toARS(sN.payments, dNBlue);
     if (first > 0) {
@@ -6061,6 +6061,7 @@ export default function App() {
         <PrintPreview
           emp={printData.emp}
           dolarMap={dolarMap}
+          dolarCryptoMap={dolarCryptoMap}
           ipcMap={ipcMap}
           ranks={ranks}
           chartData={printData.chartData}
