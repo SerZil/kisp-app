@@ -3243,7 +3243,7 @@ function Toast({ msg, type }) {
 }
 
 // ── PRINT PREVIEW ─────────────────────────────────────────────────────────────
-function PrintPreview({ emp, dolarMap, dolarCryptoMap, ipcMap, ranks, chartData, year, month, rangeFrom, rangeTo, onClose }) {
+function PrintPreview({ emp, dolarMap, dolarCryptoMap, ipcMap, ranks, chartData, year, month, rangeFrom, rangeTo, useCrypto, onClose }) {
   const printRef = useRef();
   const sorted = [...emp.history].sort((a, b) => a.from.localeCompare(b.from));
   const now = new Date();
@@ -3609,7 +3609,7 @@ function EmployeeProfile({ emp, dolarMap, dolarCryptoMap, ipcMap, ranks, onClose
             <div className="text-xs text-gray-400 uppercase tracking-wide">Sueldo</div>
             <div className="text-base font-black text-gray-900">{fARS(currentTotal)}</div>
             <div className="text-xs text-gray-400">{fUSD(currentDolar > 0 ? currentTotal / currentDolar : 0)}</div>
-            <button onClick={() => onPrint(emp, chartData, rangeFrom, rangeTo)} className="mt-1 flex items-center gap-1 px-2 py-1 bg-gray-900 text-white rounded-lg text-xs font-bold hover:bg-gray-700">
+            <button onClick={() => onPrint(emp, chartData, rangeFrom, rangeTo, useCrypto)} className="mt-1 flex items-center gap-1 px-2 py-1 bg-gray-900 text-white rounded-lg text-xs font-bold hover:bg-gray-700">
               <span>PDF</span>
             </button>
           </div>
@@ -6053,7 +6053,7 @@ export default function App() {
           onClose={() => setProfileEmp(null)}
           onSaveHistory={saveHistory}
           onSaveNotes={saveNotes}
-          onPrint={(emp, chartData, rangeFrom, rangeTo) => { setProfileEmp(null); setPrintData({ emp, chartData, year, month, rangeFrom, rangeTo }); }}
+          onPrint={(emp, chartData, rangeFrom, rangeTo, useCrypto) => { setProfileEmp(null); setPrintData({ emp, chartData, year, month, rangeFrom, rangeTo, useCrypto }); }}
         />
       )}
 
@@ -6069,6 +6069,7 @@ export default function App() {
           month={printData.month}
           rangeFrom={printData.rangeFrom}
           rangeTo={printData.rangeTo}
+          useCrypto={printData.useCrypto}
           onClose={() => setPrintData(null)}
         />
       )}
