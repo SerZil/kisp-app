@@ -1,6 +1,9 @@
 name: Daily Deploy to Cloudflare Pages
 
 on:
+  push:
+    branches:
+      - main
   schedule:
     - cron: '0 15 * * *'  # 12:00 Argentina time (UTC-3)
     - cron: '0 20 * * *'  # 17:00 Argentina time (UTC-3)
