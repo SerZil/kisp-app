@@ -1240,7 +1240,7 @@ export const EMPLOYEES_INIT = [
     { from:"2025-04-01", rank:"", payments:{"Crypto": 600, "Healthcare": 150, "Allowance": 250}, note:"" },
     { from:"2025-06-01", rank:"Sales Administration Specialist", payments:{"Crypto": 650, "Healthcare": 150, "Allowance": 250}, note:"" }
   ]},
-  { id:72, name:"DEBORA BARENBOIM GAUTIER", team:"AFD - SA", activeFrom:"2023-12-06", activeTo:"", area:"SALES SUPPORT", supervisor:"MARIA CECILIA BRACHO", notes:[], dni:"43.736.680", address:"", personalEmail:"",
+  { id:72, name:"DEBORA BARENBOIM GAUTIER", team:"AFD - SA", activeFrom:"2023-06-12", activeTo:"", area:"SALES SUPPORT", supervisor:"MARIA CECILIA BRACHO", notes:[], dni:"43.736.680", address:"", personalEmail:"",
     history:[
     { from:"2023-06-01", rank:"", payments:{"Canada": 400}, note:"" },
     { from:"2023-10-01", rank:"", payments:{"Canada": 400, "Healthcare": 100}, note:"" },

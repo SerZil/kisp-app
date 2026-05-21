@@ -1,6 +1,6 @@
 import { useRef } from "react";
 import { MONTHS, PAYMENT_TYPES, PAYMENT_META } from "../constants";
-import { mkey, toARS, fARS, fUSD, fDate } from "../helpers";
+import { mkey, toARS, toUSD, fARS, fUSD, fDate } from "../helpers";
 
 export default function PrintPreview({ emp, dolarMap, ranks, chartData, year, month, rangeFrom, rangeTo, onClose }) {
   const printRef = useRef();
@@ -31,7 +31,7 @@ export default function PrintPreview({ emp, dolarMap, ranks, chartData, year, mo
   let varLabel = "vs ingreso";
   if (snapsInRange.length >= 1) {
     const s0 = snapsInRange[0];
-    const d0 = dolarMap[mkey(new Date(s0.from).getFullYear(), new Date(s0.from).getMonth())] || 1420;
+    const d0 = dolarMap[s0.from.slice(0, 7)] || 1420;
     const first = toARS(s0.payments, d0);
     if (first > 0) {
       varTotal = ((currentTotal - first) / first) * 100;
@@ -90,7 +90,7 @@ export default function PrintPreview({ emp, dolarMap, ranks, chartData, year, mo
               <div style={{ textAlign: "right" }}>
                 <div style={{ color: "#9ca3af", fontSize: "9px", textTransform: "uppercase", letterSpacing: "1px" }}>Sueldo — {periodLabel}</div>
                 <div style={{ fontSize: "20px", fontWeight: 900 }}>{fARS(currentTotal)}</div>
-                <div style={{ color: "#9ca3af", fontSize: "10px" }}>{fUSD(currentDolar > 0 ? currentTotal / currentDolar : 0)}</div>
+                <div style={{ color: "#9ca3af", fontSize: "10px" }}>{fUSD(toUSD(current?.payments || {}))}</div>
                 <div style={{ color: "#6b7280", fontSize: "9px", marginTop: "6px" }}>KiSP Nomina · {periodLabel}</div>
               </div>
             </div>
@@ -146,15 +146,13 @@ export default function PrintPreview({ emp, dolarMap, ranks, chartData, year, mo
                       const i = snapsUpToPeriod.length - 1 - ri;
                       const isLast = i === snapsUpToPeriod.length - 1;
                       const next = sorted[i + 1];
-                      const sd = new Date(snap.from);
-                      const dk = mkey(sd.getFullYear(), sd.getMonth());
+                      const dk = snap.from.slice(0, 7);
                       const d = dolarMap[dk] || 1420;
                       const arsTotal = toARS(snap.payments, d);
                       let pct = null;
                       if (i > 0) {
                         const prev = sorted[i - 1];
-                        const pd2 = new Date(prev.from);
-                        const pk = mkey(pd2.getFullYear(), pd2.getMonth());
+                        const pk = prev.from.slice(0, 7);
                         const pd = dolarMap[pk] || 1420;
                         const prevTotal = toARS(prev.payments, pd);
                         if (prevTotal > 0) pct = ((arsTotal - prevTotal) / prevTotal) * 100;

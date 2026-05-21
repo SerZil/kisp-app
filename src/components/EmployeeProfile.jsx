@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import { MONTHS, MONTHS_SHORT, PAYMENT_TYPES, PAYMENT_META, COLOR, DATA_BY_AREA } from "../constants";
-import { mkey, snapshotAt, toARS, fARS, fUSD, initials, avatarColor, rankColor, fDate } from "../helpers";
+import { mkey, snapshotAt, toARS, toUSD, fARS, fUSD, initials, avatarColor, rankColor, fDate } from "../helpers";
 import DateInput from "./DateInput";
 import Select from "./Select";
 
@@ -61,7 +61,7 @@ export default function EmployeeProfile({ emp, dolarMap, ranks, onClose, onSaveH
   , [sorted, rangeFrom, rangeTo]);
 
   const changeKeys = useMemo(() =>
-    filteredHistory.slice(1).map(s => { const d = new Date(s.from); return mkey(d.getFullYear(), d.getMonth()); })
+    filteredHistory.slice(1).map(s => s.from.slice(0, 7))
   , [filteredHistory]);
 
   const current = sorted[sorted.length - 1];
@@ -105,7 +105,7 @@ export default function EmployeeProfile({ emp, dolarMap, ranks, onClose, onSaveH
           <div className="text-right shrink-0">
             <div className="text-xs text-gray-400 uppercase tracking-wide">Sueldo</div>
             <div className="text-base font-black text-gray-900">{fARS(currentTotal)}</div>
-            <div className="text-xs text-gray-400">{fUSD(currentDolar > 0 ? currentTotal / currentDolar : 0)}</div>
+            <div className="text-xs text-gray-400">{fUSD(toUSD(current?.payments || {}))}</div>
             <button onClick={() => onPrint(emp, chartData, rangeFrom, rangeTo)} className="mt-1 flex items-center gap-1 px-2 py-1 bg-gray-900 text-white rounded-lg text-xs font-bold hover:bg-gray-700">
               <span>PDF</span>
             </button>
@@ -270,15 +270,13 @@ export default function EmployeeProfile({ emp, dolarMap, ranks, onClose, onSaveH
                 const i = filteredHistory.length - 1 - ri;
                 const isLast = snap === sorted[sorted.length - 1];
                 const next = filteredHistory[i + 1];
-                const sd = new Date(snap.from);
-                const dk = mkey(sd.getFullYear(), sd.getMonth());
+                const dk = snap.from.slice(0, 7);
                 const d = dolarMap[dk] || 1420;
                 const arsTotal = toARS(snap.payments, d);
                 let pct = null;
                 if (i > 0) {
                   const prev = filteredHistory[i - 1];
-                  const pd2 = new Date(prev.from);
-                  const pk = mkey(pd2.getFullYear(), pd2.getMonth());
+                  const pk = prev.from.slice(0, 7);
                   const pd = dolarMap[pk] || 1420;
                   const prevTotal = toARS(prev.payments, pd);
                   if (prevTotal > 0) pct = ((arsTotal - prevTotal) / prevTotal) * 100;

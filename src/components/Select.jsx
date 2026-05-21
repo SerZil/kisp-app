@@ -16,7 +16,7 @@ export default function Select({ value, onChange, options, placeholder }) {
       </button>
       {open && (
         <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-xl max-h-52 overflow-y-auto">
-          <button type="button" onClick={() => { onChange("All"); setOpen(false); }}
+          <button type="button" onClick={() => { onChange(""); setOpen(false); }}
             className={"w-full text-left px-3 py-2 text-sm hover:bg-gray-50 " + (!value ? "bg-gray-50 text-gray-500 font-semibold" : "text-gray-400")}>
             {placeholder}
           </button>

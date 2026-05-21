@@ -3062,6 +3062,16 @@ function toARS(pay, d) {
   if (pay.Mono)       t += pay.Mono;
   return t;
 }
+function toUSD(pay) {
+  let t = 0;
+  if (pay.Crypto)     t += pay.Crypto;
+  if (pay.Canada)     t += pay.Canada;
+  if (pay.Healthcare) t += pay.Healthcare;
+  if (pay.Allowance)  t += pay.Allowance;
+  if (pay.Cash2)      t += pay.Cash2;
+  if (pay.Bonus)      t += pay.Bonus;
+  return t;
+}
 
 // Costo real empleador: aplica carga social solo sobre componente ARS
 function toCosto(pay, d, cargaPct) {
@@ -3254,36 +3264,36 @@ function PrintPreview({ emp, dolarMap, dolarCryptoMap, ipcMap, ranks, chartData,
   const current = sorted.filter(s => s.from.slice(0,7) <= selectedKey).slice(-1)[0]
                   || sorted[sorted.length - 1];
   const currentDolar = dolarMap[selectedKey] || 1420;
-  const currentTotal = current ? toARS(current.payments, currentDolar) : 0;
+  const currentDolarCrypto = (dolarCryptoMap || {})[selectedKey] || currentDolar;
+  const currentTotal = current ? (useCrypto ? toARSProfile(current.payments, currentDolar, currentDolarCrypto) : toARS(current.payments, currentDolar)) : 0;
   const periodLabel = MONTHS[month] + " " + year;
 
   // Age at selected period
   const selectedDate = new Date(year, month, 1);
   const ageMonths = Math.max(0, Math.floor((selectedDate - new Date(emp.activeFrom)) / (1000 * 60 * 60 * 24 * 30)));
 
-  // Snapshots within the selected range
-  const effectiveFrom = rangeFrom || sorted[0]?.from?.slice(0,7) || "";
+  // PDF respeta el periodo seleccionado, pero nunca antes del inicio del empleado
+  const empStartKey   = sorted[0]?.from?.slice(0,7) || emp.activeFrom?.slice(0,7) || "";
+  const effectiveFrom = rangeFrom && rangeFrom > empStartKey ? rangeFrom : empStartKey;
   const effectiveTo   = rangeTo   || selectedKey;
   const snapsUpToPeriod = sorted.filter(s => s.from.slice(0,7) <= selectedKey);
   const snapsInRange    = sorted.filter(s => s.from.slice(0,7) >= effectiveFrom && s.from.slice(0,7) <= effectiveTo);
 
-  // Variation: from start of range to end of range
+  // Variation: snapshotAt ambos extremos del rango (igual que los badges del perfil)
   let varTotal = null;
   let varLabel = "";
-  if (snapsInRange.length >= 2) {
-    const s0 = snapsInRange[0];
-    const sN = snapsInRange[snapsInRange.length - 1];
-    const k0 = mkey(new Date(s0.from).getFullYear(), new Date(s0.from).getMonth());
-    const kN = mkey(new Date(sN.from).getFullYear(), new Date(sN.from).getMonth());
-    const d0Blue = dolarMap[k0] || 1420;
-    const dNBlue = dolarMap[kN] || 1420;
-    const d0Crypto = (dolarCryptoMap || {})[k0] || d0Blue;
-    const dNCrypto = (dolarCryptoMap || {})[kN] || dNBlue;
-    const first = useCrypto ? toARSProfile(s0.payments, d0Blue, d0Crypto) : toARS(s0.payments, d0Blue);
-    const last  = useCrypto ? toARSProfile(sN.payments, dNBlue, dNCrypto) : toARS(sN.payments, dNBlue);
+  const fdSnap = snapshotAt(emp, effectiveFrom + "-15");
+  const tdSnap = snapshotAt(emp, effectiveTo   + "-15");
+  if (fdSnap && tdSnap) {
+    const d0Blue   = dolarMap[effectiveFrom] || dolarMap[selectedKey] || 1420;
+    const dNBlue   = dolarMap[effectiveTo]   || dolarMap[selectedKey] || 1420;
+    const d0Crypto = (dolarCryptoMap || {})[effectiveFrom] || d0Blue;
+    const dNCrypto = (dolarCryptoMap || {})[effectiveTo]   || (dolarCryptoMap || {})[selectedKey] || dNBlue;
+    const first = useCrypto ? toARSProfile(fdSnap.payments, d0Blue, d0Crypto) : toARS(fdSnap.payments, d0Blue);
+    const last  = useCrypto ? toARSProfile(tdSnap.payments, dNBlue, dNCrypto) : toARS(tdSnap.payments, dNBlue);
     if (first > 0) {
       varTotal = ((last - first) / first) * 100;
-      varLabel = s0.from.slice(0,7) + " → " + sN.from.slice(0,7);
+      varLabel = effectiveFrom + " → " + effectiveTo;
     }
   }
 
@@ -3291,12 +3301,11 @@ function PrintPreview({ emp, dolarMap, dolarCryptoMap, ipcMap, ranks, chartData,
   let ipcAcum = null;
   if (ipcMap && Object.keys(ipcMap).length > 0 && effectiveFrom && effectiveTo) {
     let factor = 1;
-    let cur = new Date(effectiveFrom + "-01");
-    const end = new Date(effectiveTo + "-01");
-    while (cur <= end) {
-      const k = mkey(cur.getFullYear(), cur.getMonth());
+    let k = effectiveFrom;
+    while (k <= effectiveTo) {
       if (ipcMap[k] != null) factor *= (1 + ipcMap[k] / 100);
-      cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1);
+      const [y, m] = k.split('-').map(Number);
+      k = m === 12 ? (y+1) + '-01' : y + '-' + String(m+1).padStart(2,'0');
     }
     ipcAcum = (factor - 1) * 100;
   }
@@ -3351,8 +3360,11 @@ function PrintPreview({ emp, dolarMap, dolarCryptoMap, ipcMap, ranks, chartData,
               </div>
               <div style={{ textAlign: "right" }}>
                 <div style={{ color: "#9ca3af", fontSize: "9px", textTransform: "uppercase", letterSpacing: "1px" }}>Sueldo — {periodLabel}</div>
-                <div style={{ fontSize: "20px", fontWeight: 900 }}>{fARS(currentTotal)}</div>
-                <div style={{ color: "#9ca3af", fontSize: "10px" }}>{fUSD(currentDolar > 0 ? currentTotal / currentDolar : 0)}</div>
+                <div style={{ display: "flex", alignItems: "baseline", gap: "6px", justifyContent: "flex-end" }}>
+                  <div style={{ fontSize: "20px", fontWeight: 900 }}>{fARS(currentTotal)}</div>
+                  <div style={{ fontSize: "9px", fontWeight: 700, color: useCrypto ? "#7c3aed" : "#2563eb", background: useCrypto ? "#ede9fe" : "#dbeafe", borderRadius: "4px", padding: "1px 5px", textTransform: "uppercase" }}>{useCrypto ? "Crypto" : "Blue"}</div>
+                </div>
+                <div style={{ color: "#9ca3af", fontSize: "10px" }}>{fUSD(toUSD(current?.payments || {}))}</div>
                 <div style={{ color: "#6b7280", fontSize: "9px", marginTop: "6px" }}>KiSP Nomina · {periodLabel}</div>
               </div>
             </div>
@@ -3488,7 +3500,10 @@ function toARSProfile(pay, dBlue, dCrypto) {
 
 function EmployeeProfile({ emp, dolarMap, dolarCryptoMap, ipcMap, ranks, onClose, onSaveHistory, onSaveNotes, onPrint }) {
   const [addingNote, setAddingNote] = useState(false);
-  const [useCrypto, setUseCrypto] = useState(false);
+  const [useCrypto, setUseCrypto] = useState(() => {
+    const cur = [...emp.history].sort((a,b) => a.from.localeCompare(b.from)).slice(-1)[0];
+    return !!(cur?.payments?.Crypto || cur?.payments?.Canada);
+  });
   const [newNote, setNewNote] = useState({ text: "", reminder: "" });
 
   const [showNoteHistory, setShowNoteHistory] = useState(false);
@@ -3555,7 +3570,7 @@ function EmployeeProfile({ emp, dolarMap, dolarCryptoMap, ipcMap, ranks, onClose
   , [sorted, rangeFrom, rangeTo]);
 
   const changeKeys = useMemo(() =>
-    filteredHistory.slice(1).map(s => { const d = new Date(s.from); return mkey(d.getFullYear(), d.getMonth()); })
+    filteredHistory.slice(1).map(s => s.from.slice(0, 7))
   , [filteredHistory]);
 
   const current = sorted[sorted.length - 1];
@@ -3608,7 +3623,7 @@ function EmployeeProfile({ emp, dolarMap, dolarCryptoMap, ipcMap, ranks, onClose
           <div className="text-right shrink-0">
             <div className="text-xs text-gray-400 uppercase tracking-wide">Sueldo</div>
             <div className="text-base font-black text-gray-900">{fARS(currentTotal)}</div>
-            <div className="text-xs text-gray-400">{fUSD(currentDolar > 0 ? currentTotal / currentDolar : 0)}</div>
+            <div className="text-xs text-gray-400">{fUSD(toUSD(current?.payments || {}))}</div>
             <button onClick={() => onPrint(emp, chartData, rangeFrom, rangeTo, useCrypto)} className="mt-1 flex items-center gap-1 px-2 py-1 bg-gray-900 text-white rounded-lg text-xs font-bold hover:bg-gray-700">
               <span>PDF</span>
             </button>
@@ -3630,14 +3645,24 @@ function EmployeeProfile({ emp, dolarMap, dolarCryptoMap, ipcMap, ranks, onClose
                 className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-gray-300" />
             </div>
             <div className="flex gap-1">
-              {[["6m","6 meses",6],["1a","1 año",12],["2a","2 años",24],["Todo","Todo",null]].map(([label, title, months]) => (
-                <button key={label} onClick={() => {
-                  if (months === null) { setRangeFrom(firstMonth); setRangeTo(new Date().toISOString().slice(0,7)); }
-                  else { const d = new Date(); d.setMonth(d.getMonth() - months); setRangeFrom(d.toISOString().slice(0,7)); setRangeTo(new Date().toISOString().slice(0,7)); }
-                }} className="px-2.5 py-1 rounded-lg text-xs font-bold bg-white border border-gray-200 hover:bg-gray-900 hover:text-white hover:border-gray-900 transition-all">
-                  {label}
-                </button>
-              ))}
+              {[["6m","6 meses",6],["1a","1 año",12],["2a","2 años",24],["Todo","Todo",null]].map(([label, title, months]) => {
+                const activeFromKey = emp.activeFrom ? emp.activeFrom.slice(0,7) : firstMonth;
+                const monthsActive = (() => {
+                  const from = new Date(activeFromKey + "-01");
+                  const now = new Date();
+                  return (now.getFullYear() - from.getFullYear()) * 12 + (now.getMonth() - from.getMonth());
+                })();
+                const disabled = months !== null && monthsActive < months;
+                return (
+                  <button key={label} disabled={disabled} onClick={() => {
+                    if (months === null) { setRangeFrom(firstMonth); setRangeTo(new Date().toISOString().slice(0,7)); }
+                    else { const d = new Date(); d.setMonth(d.getMonth() - months); setRangeFrom(d.toISOString().slice(0,7)); setRangeTo(new Date().toISOString().slice(0,7)); }
+                  }} title={disabled ? `La persona lleva menos de ${title} en la empresa` : title}
+                  className={"px-2.5 py-1 rounded-lg text-xs font-bold border transition-all " + (disabled ? "bg-gray-50 border-gray-100 text-gray-300 cursor-not-allowed" : "bg-white border-gray-200 hover:bg-gray-900 hover:text-white hover:border-gray-900")}>
+                    {label}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -3779,7 +3804,6 @@ function EmployeeProfile({ emp, dolarMap, dolarCryptoMap, ipcMap, ranks, onClose
               <div className="flex items-center gap-2 flex-wrap">
                 <div className="text-sm font-semibold text-gray-700">
                   Historial de cambios
-                  {filteredHistory.length < sorted.length && <span className="ml-2 text-xs text-gray-400">({filteredHistory.length} de {sorted.length})</span>}
                 </div>
                 {(() => {
                   const fromKey = rangeFrom; // "YYYY-MM"
@@ -3800,12 +3824,11 @@ function EmployeeProfile({ emp, dolarMap, dolarCryptoMap, ipcMap, ranks, onClose
                   let ipcAcum = null;
                   if (ipcMap && Object.keys(ipcMap).length > 0) {
                     let factor = 1;
-                    let cur = new Date(fromKey + "-01");
-                    const end = new Date(toKey + "-01");
-                    while (cur <= end) {
-                      const k = mkey(cur.getFullYear(), cur.getMonth());
+                    let k = fromKey;
+                    while (k <= toKey) {
                       if (ipcMap[k] != null) factor *= (1 + ipcMap[k] / 100);
-                      cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1);
+                      const [y, m] = k.split('-').map(Number);
+                      k = m === 12 ? (y+1) + '-01' : y + '-' + String(m+1).padStart(2,'0');
                     }
                     ipcAcum = (factor - 1) * 100;
                   }
@@ -3832,30 +3855,28 @@ function EmployeeProfile({ emp, dolarMap, dolarCryptoMap, ipcMap, ranks, onClose
 
             <div className="relative">
               <div className="absolute left-5 top-0 bottom-0 w-0.5 bg-gray-200" />
-              {filteredHistory.length === 0 && (
-                <div className="text-center py-8 text-gray-400 text-sm">No hay cambios en este periodo</div>
+              {sorted.length === 0 && (
+                <div className="text-center py-8 text-gray-400 text-sm">Sin historial</div>
               )}
-              {[...filteredHistory].reverse().map((snap, ri) => {
-                const i = filteredHistory.length - 1 - ri;
+              {[...sorted].reverse().map((snap, ri) => {
+                const i = sorted.length - 1 - ri;
                 const isLast = snap === sorted[sorted.length - 1];
-                const next = filteredHistory[i + 1];
-                const sd = new Date(snap.from);
-                const dk = mkey(sd.getFullYear(), sd.getMonth());
+                const next = sorted[i + 1];
+                const dk = snap.from.slice(0, 7);
                 const dBlue = dolarMap[dk] || 1420;
                 const dCryptoSnap = dolarCryptoMap[dk] || dBlue;
                 const arsTotal = useCrypto ? toARSProfile(snap.payments, dBlue, dCryptoSnap) : toARS(snap.payments, dBlue);
                 const dLabel = useCrypto ? dCryptoSnap : dBlue;
                 let pct = null;
                 if (i > 0) {
-                  const prev = filteredHistory[i - 1];
-                  const pd2 = new Date(prev.from);
-                  const pk = mkey(pd2.getFullYear(), pd2.getMonth());
+                  const prev = sorted[i - 1];
+                  const pk = prev.from.slice(0, 7);
                   const pdBlue = dolarMap[pk] || 1420;
                   const pdCrypto = dolarCryptoMap[pk] || pdBlue;
                   const prevTotal = useCrypto ? toARSProfile(prev.payments, pdBlue, pdCrypto) : toARS(prev.payments, pdBlue);
                   if (prevTotal > 0) pct = ((arsTotal - prevTotal) / prevTotal) * 100;
                 }
-                const prev = i > 0 ? filteredHistory[i - 1] : null;
+                const prev = i > 0 ? sorted[i - 1] : null;
                 const diffLines = [];
                 if (prev) {
                   if (snap.rank !== prev.rank) diffLines.push(`Cargo: ${prev.rank || "—"} → ${snap.rank || "—"}`);
@@ -4022,6 +4043,18 @@ export default function App() {
       subject: "New Team Member - Canada USD — {name}",
       body: "Hi Mary,\n\nPlease find below the details for our new team member joining on {startDate}:\n\nFull Name: {name}\nDNI: {dni}\nAddress: {address}\nPersonal Email: {personalEmail}\nDepartment: {area}\nSalary: {salary}\nStart Date: {startDate}\n\nCould you please reach out to coordinate their onboarding?\n\nThank you!"
     },
+    monoChange: {
+      to: "Ezequiel Stolar <ezequielstolar@gmail.com>",
+      cc: "Mary Velasco <mvelasco@kisptech.com>, Robert Kendal <rkendal@kisp.com>",
+      subject: "Salary Update — {name} · {monthYear}",
+      body: "Hi Ezequiel,\n\nWe {changeDirection} {name}'s salary to ${monoAmount} (MONOTRIBUTO)\nPlease plan on paying the new salary effective {monthYear}\n\nThank you,"
+    },
+    canadaChange: {
+      to: "Mary Velasco <mvelasco@kisptech.com>",
+      cc: "Robert Kendal <rkendal@kisp.com>",
+      subject: "Salary Update — {name} · {monthYear}",
+      body: "Hi Mary,\n\nWe {changeDirection} {name}'s salary to ${canadaAmount}\nPlease plan on paying the new salary effective {monthYear}\n\nThank you,"
+    },
     cryptoToCanada: {
       to: "Mary Velasco <mvelasco@kisptech.com>",
       cc: "Robert Kendal <rkendal@kisp.com>",
@@ -4101,6 +4134,8 @@ export default function App() {
             const k = dateStr.slice(0, 7); // "YYYY-MM"
             map[k] = ((val - prevVal) / prevVal) * 100;
           }
+          // Fallback: datos publicados por INDEC pero aún no en el API
+          if (map["2026-04"] == null) map["2026-04"] = 2.6;
           setIpcMap(map);
         }
       } catch (e) {
@@ -4158,38 +4193,68 @@ export default function App() {
       }
     }
 
+    function migrateEmployees(empList) {
+      return empList.map(e => {
+        const history = (e.history || []).map(s => {
+          const { Bonus, ...rest } = s.payments || {};
+          return { ...s, payments: rest };
+        });
+        let migrated;
+        if ((e.bonusVersion || 0) < 5) {
+          const { bonusAmount, bonusMonth, bonusHistory, bonusVersion, ...empRest } = e;
+          migrated = { ...empRest, bonusHistory: [], bonusVersion: 5, history };
+        } else {
+          const { bonusAmount, bonusMonth, ...empRest } = e;
+          migrated = { ...empRest, history };
+        }
+        // Limpiar team inválido
+        if (!migrated.team || migrated.team === "All") migrated.team = "";
+        return migrated;
+      });
+    }
+
     async function loadFromStorage() {
+      // Leer localStorage primero
+      let localEmployees = null, localDolar = null, localSavedAt = 0;
+      try {
+        const raw = localStorage.getItem("kisp-employees");
+        if (raw) localEmployees = JSON.parse(raw);
+        const rawD = localStorage.getItem("kisp-dolar");
+        if (rawD) localDolar = JSON.parse(rawD);
+        localSavedAt = parseInt(localStorage.getItem("kisp-savedAt") || "0");
+      } catch (e) { /* ignorar */ }
+
       try {
         const res = await fetch(SHEETS_URL, { method: "GET", mode: "cors" });
         if (res.ok) {
           const data = await res.json();
           if (data.employees) {
-            // Migrate v5: full bonus reset. Clear ALL bonus data for any employee below v5.
-            const migratedEmployees = data.employees.map(e => {
-              const history = (e.history || []).map(s => {
-                const { Bonus, ...rest } = s.payments || {};
-                return { ...s, payments: rest };
-              });
-              if ((e.bonusVersion || 0) < 5) {
-                const { bonusAmount, bonusMonth, bonusHistory, bonusVersion, ...empRest } = e;
-                return { ...empRest, bonusHistory: [], bonusVersion: 5, history };
-              }
-              // v5+ employees: strip root fields, keep bonusHistory
-              const { bonusAmount, bonusMonth, ...empRest } = e;
-              return { ...empRest, history };
-            });
-            setEmployees(migratedEmployees);
-            if (data.dolarMap) setDolarMap(data.dolarMap);
+            const sheetsSavedAt = data.savedAt || 0;
+            // Usar la fuente más reciente
+            if (localEmployees && localSavedAt > sheetsSavedAt) {
+              setEmployees(migrateEmployees(localEmployees));
+              if (localDolar) setDolarMap(localDolar);
+            } else {
+              setEmployees(migrateEmployees(data.employees));
+              if (data.dolarMap) setDolarMap(data.dolarMap);
+            }
             setStorageReady(true);
             fetchDolarBlue();
             fetchIPC();
             return;
           }
         }
-        setLoadError(true);
-        setStorageReady(true);
       } catch (e) {
         console.error("Error cargando desde Sheets:", e);
+      }
+      // Fallback a localStorage
+      if (localEmployees) {
+        setEmployees(migrateEmployees(localEmployees));
+        if (localDolar) setDolarMap(localDolar);
+        setStorageReady(true);
+        fetchDolarBlue();
+        fetchIPC();
+      } else {
         setLoadError(true);
         setStorageReady(true);
       }
@@ -4202,10 +4267,12 @@ export default function App() {
 
   useEffect(() => {
     if (!storageReady) return;
-    // Guardar en localStorage inmediatamente
+    // Guardar en localStorage inmediatamente con timestamp
+    const savedAt = Date.now();
     try {
       localStorage.setItem("kisp-employees", JSON.stringify(employees));
       localStorage.setItem("kisp-dolar", JSON.stringify(dolarMap));
+      localStorage.setItem("kisp-savedAt", String(savedAt));
     } catch (e) { console.error("Storage save error:", e); }
     // Sync a Google Sheets con debounce de 3 segundos
     const timer = setTimeout(() => {
@@ -4214,7 +4281,7 @@ export default function App() {
           method: "POST",
           mode: "no-cors",
           headers: { "Content-Type": "text/plain" },
-          body: JSON.stringify({ employees, dolarMap }),
+          body: JSON.stringify({ employees, dolarMap, savedAt }),
         });
       } catch (e) { /* sin conexión, ignorar */ }
     }, 3000);
@@ -4399,6 +4466,8 @@ export default function App() {
       .replace(/\{cash2Amount\}/g, b(cash2Amount))
       .replace(/\{bonusAmount\}/g, b(emp.bonusAmount ? Math.round(emp.bonusAmount).toLocaleString("es-AR") : (emp.payments && emp.payments.Bonus ? Math.round(emp.payments.Bonus).toLocaleString("es-AR") : "—")))
       .replace(/\{cryptoAmount\}/g, b(emp.payments && emp.payments.Crypto ? Math.round(emp.payments.Crypto).toLocaleString("es-AR") : "—"))
+      .replace(/\{canadaAmount\}/g, b(emp.payments && emp.payments.Canada ? Math.round(emp.payments.Canada).toLocaleString("es-AR") : "—"))
+      .replace(/\{monoAmount\}/g, b(emp.payments && emp.payments.Mono ? Math.round(emp.payments.Mono).toLocaleString("es-AR") : "—"))
       .replace(/\{changeDirection\}/g, emp._changeDirection || "updated")
       .replace(/\{himHer\}/g, himHer)
       .replace(/\{hisHer\}/g, firstName.endsWith("a") ? "her" : "his")
@@ -4424,13 +4493,13 @@ export default function App() {
         htmlBody: filledHtmlBody,
       }),
     });
-    showToast("✉️ Borrador creado en Gmail");
+    setTimeout(() => showToast("✉️ Borrador creado en Gmail"), 2600);
   }
 
-  function saveEmployee(emp, applyNextMonth = true) {
-    try { _saveEmployee(emp, applyNextMonth); } catch(err) { alert("Error al guardar: " + err.message + "\n" + err.stack); }
+  function saveEmployee(emp, applyNextMonth = true, specificMonth = "") {
+    try { _saveEmployee(emp, applyNextMonth, specificMonth); } catch(err) { alert("Error al guardar: " + err.message + "\n" + err.stack); }
   }
-  function _saveEmployee(emp, applyNextMonth = true) {
+  function _saveEmployee(emp, applyNextMonth = true, specificMonth = "") {
     const isNew = !emp.id;
     if (emp.id) {
       // Detect Cash2 change
@@ -4474,6 +4543,14 @@ export default function App() {
       if (oldCrypto > 0 && newCrypto === 0 && newCanada > 0 && oldCanada === 0) {
         openGmailDraft("cryptoToCanada", { ...emp, _monthYear: monthYear });
       }
+      if (newCanada !== oldCanada && newCanada > 0 && !(oldCrypto > 0 && oldCanada === 0)) {
+        openGmailDraft("canadaChange", { ...emp, _monthYear: monthYear, _changeDirection: newCanada > oldCanada ? "increased" : "decreased" });
+      }
+      const oldMono = lastSnap2?.payments?.Mono || 0;
+      const newMono = emp.payments ? (emp.payments.Mono || 0) : 0;
+      if (newMono !== oldMono && newMono > 0) {
+        openGmailDraft("monoChange", { ...emp, _monthYear: monthYear, _changeDirection: newMono > oldMono ? "increased" : "decreased" });
+      }
       // Detect trunk change (placeholder — draft to be defined)
       const TRUNKS = ["Crypto","Canada","Mono","ARS"];
       const oldTrunk = TRUNKS.find(t => (lastSnap2?.payments?.[t] || 0) > 0) || null;
@@ -4500,11 +4577,11 @@ export default function App() {
         const nextMonthKey = _nd.getFullYear() + "-" + String(_nd.getMonth() + 1).padStart(2, "0");
         const nextMonthFrom = nextMonthKey + "-01";
         const curMonthKey = new Date().getFullYear() + "-" + String(new Date().getMonth() + 1).padStart(2, "0");
-        const targetMonthKey = applyNextMonth ? nextMonthKey : curMonthKey;
+        const targetMonthKey = specificMonth ? specificMonth : (applyNextMonth ? nextMonthKey : curMonthKey);
         const targetMonthFrom = targetMonthKey + "-01";
         // Si el empleado se va este mes, guardar EN el mes actual (no en el siguiente)
         const leavingThisMonth = emp.activeTo && emp.activeTo.slice(0, 7) <= curMonthKey;
-        if (paymentsChanged || rankChanged) {
+        if (paymentsChanged || rankChanged || specificMonth) {
           if (leavingThisMonth) {
             // Actualizar la última entrada del mes actual o anterior en lugar de crear una de mes siguiente
             const lastApplicableIdx = newHistory.reduce((acc, s, i) => s.from.slice(0, 7) <= curMonthKey ? i : acc, -1);
@@ -4514,11 +4591,18 @@ export default function App() {
               newHistory = [...newHistory, { from: curMonthKey + "-01", rank: emp.rank, payments: cleanPayments, note: "" }];
             }
           } else {
-            const lastFrom = newHistory.length > 0 ? newHistory[newHistory.length - 1].from.slice(0, 7) : null;
-            if (lastFrom === targetMonthKey) {
-              newHistory = newHistory.map((s, i) => i === newHistory.length - 1 ? { ...s, payments: cleanPayments, rank: emp.rank } : s);
-            } else {
+            if (specificMonth) {
+              // Cuando se elige mes específico: eliminar todas las entradas desde ese mes en adelante
+              // y agregar la nueva. Así el cambio rige para adelante.
+              newHistory = newHistory.filter(s => s.from.slice(0, 7) < specificMonth);
               newHistory = [...newHistory, { from: targetMonthFrom, rank: emp.rank, payments: cleanPayments, note: "" }];
+            } else {
+              const lastFrom = newHistory.length > 0 ? newHistory[newHistory.length - 1].from.slice(0, 7) : null;
+              if (lastFrom === targetMonthKey) {
+                newHistory = newHistory.map((s, i) => i === newHistory.length - 1 ? { ...s, payments: cleanPayments, rank: emp.rank } : s);
+              } else {
+                newHistory = [...newHistory, { from: targetMonthFrom, rank: emp.rank, payments: cleanPayments, note: "" }];
+              }
             }
           }
         }
@@ -4667,12 +4751,11 @@ export default function App() {
           <div className="flex items-center gap-3 shrink-0">
             {(() => {
               const curKey = mkey(new Date().getFullYear(), new Date().getMonth());
-              const isCurrentMonth = key === curKey;
-              if (ipcMap[key] != null || isCurrentMonth) return (
+              if (ipcMap[key] != null || key <= curKey) return (
                 <div className="flex flex-col items-end py-2">
                   <span className="text-gray-400 text-xs font-medium mb-1">IPC INDEC</span>
                   <span className="bg-orange-50 border border-orange-300 text-orange-800 font-bold text-sm px-3 py-1 rounded-lg">
-                    {isCurrentMonth && ipcMap[key] == null ? "—" : (ipcMap[key] > 0 ? "+" : "") + ipcMap[key].toFixed(1) + "%"}
+                    {ipcMap[key] == null ? "—" : (ipcMap[key] > 0 ? "+" : "") + ipcMap[key].toFixed(1) + "%"}
                   </span>
                 </div>
               );
@@ -5305,6 +5388,7 @@ export default function App() {
                         <td className="px-4 py-3 text-right">
                           <div className="flex flex-col gap-1">
                             {emp.payments.ARS > 0        && <div className="text-xs text-blue-700 font-mono py-0.5">{fARS(emp.payments.ARS)}</div>}
+                            {emp.payments.Mono > 0       && <div className="text-xs text-green-700 font-mono py-0.5">{fARS(emp.payments.Mono)}</div>}
                             {emp.payments.Crypto > 0     && <div className="text-xs text-purple-700 font-mono py-0.5">U$ {emp.payments.Crypto.toLocaleString("es-AR")}</div>}
                             {emp.payments.Canada > 0     && <div className="text-xs text-red-700 font-mono py-0.5">U$ {emp.payments.Canada.toLocaleString("es-AR")}</div>}
                             {emp.payments.Healthcare > 0 && <div className="text-xs text-pink-700 font-mono py-0.5">U$ {emp.payments.Healthcare.toLocaleString("es-AR")}</div>}
@@ -5496,7 +5580,7 @@ export default function App() {
           const totalB = cmpB ? arsNomina(cmpB.payments) : 0;
           const maxT = Math.max(totalA, totalB, 1);
           const diff = totalA - totalB;
-          const diffUSD = dolar > 0 ? diff / dolar : 0;
+          const diffUSD = toUSD(cmpA?.payments || {}) - toUSD(cmpB?.payments || {});
 
           return (
             <div className="space-y-4">
@@ -5524,7 +5608,7 @@ export default function App() {
                           <span className="font-semibold text-gray-700 truncate">{emp.name}</span>
                           <div className="text-right shrink-0 ml-2">
                             <span className="font-black text-gray-900">{fARS(total)}</span>
-                            {dolar > 0 && <span className="text-gray-400 ml-1">{fUSD(total/dolar)}</span>}
+                            <span className="text-gray-400 ml-1">{fUSD(toUSD(emp.payments))}</span>
                           </div>
                         </div>
                         <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
@@ -6081,7 +6165,7 @@ export default function App() {
           teams={teams}
           ranks={ranks}
           areas={areas}
-          supervisors={[...new Set(employees.map(e => e.name).filter(Boolean))].sort()}
+          supervisors={[...new Set(employees.filter(e => !e.activeTo).map(e => e.name).filter(Boolean))].sort()}
           currentKey={key}
           onSave={saveEmployee}
           onClose={() => setModal(null)}
@@ -6209,7 +6293,7 @@ function CmpPanel({ emp, search, setSearch, setEmp, label, allEmps, dolar, dolar
     ? allEmps.filter(e => e.name.toLowerCase().includes(search.toLowerCase())).slice(0, 8)
     : [];
   const total = emp ? (useNominaCrypto ? toARSProfile(emp.payments, dolar, dolarCrypto) : toARS(emp.payments, dolar)) : 0;
-  const usd   = dolar > 0 && total > 0 ? total / dolar : 0;
+  const usd   = emp ? toUSD(emp.payments) : 0;
   const payments = emp ? emp.payments : {};
   const fARS2 = v => '$' + Math.round(v).toLocaleString('es-AR');
   const fUSD2 = v => 'U$' + v.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
@@ -6254,6 +6338,15 @@ function CmpPanel({ emp, search, setSearch, setEmp, label, allEmps, dolar, dolar
             <div className="flex-1 min-w-0">
               <div className="font-bold text-xs text-gray-900 truncate">{emp.name}</div>
               <div className="text-xs text-gray-400 truncate">{emp.rank || emp.area}</div>
+              {emp.activeFrom && (() => {
+                const [y, m, d] = emp.activeFrom.split('-').map(Number);
+                const now = new Date();
+                const totalMonths = (now.getFullYear() - y) * 12 + (now.getMonth() - (m - 1));
+                const years = Math.floor(totalMonths / 12);
+                const months = totalMonths % 12;
+                const ant = (years > 0 ? years + 'a ' : '') + months + 'm';
+                return <div className="text-xs text-gray-400">{d.toString().padStart(2,'0')}/{m.toString().padStart(2,'0')}/{y} · {ant}</div>;
+              })()}
             </div>
           </div>
           <div className="rounded-lg px-2.5 py-1.5 border border-gray-100 overflow-hidden" style={{background:"#f0faf5"}}>
@@ -6398,6 +6491,7 @@ function EmployeeModal({ data, mode, teams, ranks, areas, supervisors, currentKe
   })();
   const [f, setF] = useState({ ...data, rank: _initRank, payments: _initPayments, bonusAmount: _initBonus.amount, bonusMonth: _initBonus.month });
   const [applyNextMonth, setApplyNextMonth] = useState(true);
+  const [specificMonth, setSpecificMonth] = useState("");
   const [selectedTrunk, setSelectedTrunk] = useState(
     TRUNKS.find(t => (_initPayments[t] || 0) > 0) || null
   );
@@ -6406,9 +6500,7 @@ function EmployeeModal({ data, mode, teams, ranks, areas, supervisors, currentKe
     setSelectedTrunk(t);
     setF(p => {
       const newPayments = { ...p.payments };
-      const oldAmount = TRUNKS.reduce((acc, tr) => tr !== t ? (newPayments[tr] || acc) : acc, 0);
-      TRUNKS.forEach(tr => { if (tr !== t) newPayments[tr] = 0; });
-      if (!newPayments[t]) newPayments[t] = oldAmount;
+      if (!newPayments[t]) newPayments[t] = 0;
       if (t === "ARS") newPayments.Healthcare = 0;
       return { ...p, payments: newPayments };
     });
@@ -6495,15 +6587,15 @@ function EmployeeModal({ data, mode, teams, ranks, areas, supervisors, currentKe
                 </button>
               ))}
             </div>
-            {selectedTrunk && (
-              <div className={"flex items-center gap-3 p-2.5 rounded-xl mb-4 " + TRUNK_COLORS[selectedTrunk].bg}>
-                <span className={"flex-1 text-xs font-semibold " + TRUNK_COLORS[selectedTrunk].text}>{TRUNK_LABELS[selectedTrunk]}</span>
+            {TRUNKS.filter(t => t === selectedTrunk || (f.payments[t] || 0) > 0).map(t => (
+              <div key={t} className={"flex items-center gap-3 p-2.5 rounded-xl mb-2 " + TRUNK_COLORS[t].bg}>
+                <span className={"flex-1 text-xs font-semibold " + TRUNK_COLORS[t].text}>{TRUNK_LABELS[t]}</span>
                 <input type="number" placeholder="0"
-                  className={"w-32 border " + TRUNK_COLORS[selectedTrunk].border + " rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none"}
-                  value={f.payments[selectedTrunk] || ""} onChange={e => setPay(selectedTrunk, e.target.value)} />
-                <span className={"text-xs opacity-60 w-8 " + TRUNK_COLORS[selectedTrunk].text}>{selectedTrunk === "ARS" || selectedTrunk === "Mono" ? "ARS" : "USD"}</span>
+                  className={"w-32 border " + TRUNK_COLORS[t].border + " rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none"}
+                  value={f.payments[t] || ""} onChange={e => setPay(t, e.target.value)} />
+                <span className={"text-xs opacity-60 w-8 " + TRUNK_COLORS[t].text}>{t === "ARS" || t === "Mono" ? "ARS" : "USD"}</span>
               </div>
-            )}
+            ))}
             <div className="text-xs font-bold text-gray-400 uppercase mb-2">Adicionales</div>
             <div className="space-y-2">
               {ITEMS.map(item => {
@@ -6579,17 +6671,21 @@ function EmployeeModal({ data, mode, teams, ranks, areas, supervisors, currentKe
           ) : null;
         })()}
         {mode === "edit" && (
-          <div className="px-4 py-2 border-t border-gray-100 bg-gray-50 shrink-0 flex items-center justify-between">
-            <span className="text-xs text-gray-400">Aplicar cambio en</span>
+          <div className="px-4 py-2 border-t border-gray-100 bg-gray-50 shrink-0 flex items-center justify-between gap-3 flex-wrap">
+            <span className="text-xs text-gray-400 shrink-0">Aplicar cambio en</span>
             <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs font-semibold">
-              <button type="button" onClick={() => setApplyNextMonth(false)}
-                className={"px-3 py-1.5 transition-colors " + (!applyNextMonth ? "bg-gray-900 text-white" : "bg-white text-gray-500 hover:bg-gray-50")}>
+              <button type="button" onClick={() => { setApplyNextMonth(false); setSpecificMonth(""); }}
+                className={"px-3 py-1.5 transition-colors " + (!specificMonth && !applyNextMonth ? "bg-gray-900 text-white" : "bg-white text-gray-500 hover:bg-gray-50")}>
                 Mes actual
               </button>
-              <button type="button" onClick={() => setApplyNextMonth(true)}
-                className={"px-3 py-1.5 transition-colors " + (applyNextMonth ? "bg-gray-900 text-white" : "bg-white text-gray-500 hover:bg-gray-50")}>
+              <button type="button" onClick={() => { setApplyNextMonth(true); setSpecificMonth(""); }}
+                className={"px-3 py-1.5 transition-colors " + (!specificMonth && applyNextMonth ? "bg-gray-900 text-white" : "bg-white text-gray-500 hover:bg-gray-50")}>
                 Mes que viene
               </button>
+              <input type="month" value={specificMonth}
+                onChange={e => { setSpecificMonth(e.target.value); }}
+                title="Mes específico"
+                className={"px-3 py-1.5 border-l border-gray-200 text-xs transition-colors focus:outline-none " + (specificMonth ? "bg-gray-900 text-white" : "bg-white text-gray-400")} />
             </div>
           </div>
         )}
@@ -6598,7 +6694,7 @@ function EmployeeModal({ data, mode, teams, ranks, areas, supervisors, currentKe
           {mode === "add" && !f.activeFrom && (
             <span className="text-xs text-red-500 font-medium self-center">⚠️ Falta fecha de inicio</span>
           )}
-          <button onClick={() => onSave(f, applyNextMonth)} disabled={!f.name.trim() || (mode === "add" && !f.activeFrom)}
+          <button onClick={() => onSave(f, applyNextMonth, specificMonth)} disabled={!f.name.trim() || (mode === "add" && !f.activeFrom)}
             className="px-4 py-2 rounded-lg bg-gray-900 text-white text-sm font-bold hover:bg-gray-700 disabled:opacity-40">
             {mode === "edit" ? "Guardar" : "Agregar"}
           </button>

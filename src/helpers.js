@@ -19,6 +19,17 @@ export function snapshotAt(emp, dateStr) {
   return snap;
 }
 
+export function toUSD(pay) {
+  let t = 0;
+  if (pay.Crypto)     t += pay.Crypto;
+  if (pay.Canada)     t += pay.Canada;
+  if (pay.Healthcare) t += pay.Healthcare;
+  if (pay.Allowance)  t += pay.Allowance;
+  if (pay.Cash2)      t += pay.Cash2;
+  if (pay.Bonus)      t += pay.Bonus;
+  return t;
+}
+
 export function toARS(pay, d) {
   let t = 0;
   if (pay.ARS)        t += pay.ARS;
