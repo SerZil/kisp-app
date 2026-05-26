@@ -3544,7 +3544,8 @@ function EmployeeProfile({ emp, dolarMap, dolarCryptoMap, ipcMap, ranks, onClose
   }, []);
   const firstMonth = useMemo(() => sorted[0]?.from?.slice(0, 7) || "2023-01", [sorted]);
   const [rangeFrom, setRangeFrom] = useState(defaultFrom);
-  const [rangeTo, setRangeTo]     = useState(() => { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() + 1); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); });
+  const lastIpcKey = useMemo(() => Object.keys(ipcMap).filter(k => ipcMap[k] != null).sort().slice(-1)[0] || new Date().toISOString().slice(0,7), [ipcMap]);
+  const [rangeTo, setRangeTo]     = useState(() => Object.keys(ipcMap).filter(k => ipcMap[k] != null).sort().slice(-1)[0] || new Date().toISOString().slice(0,7));
 
   const chartData = useMemo(() => {
     const pts = [];
@@ -3649,14 +3650,14 @@ function EmployeeProfile({ emp, dolarMap, dolarCryptoMap, ipcMap, ranks, onClose
                 const activeFromKey = emp.activeFrom ? emp.activeFrom.slice(0,7) : firstMonth;
                 const monthsActive = (() => {
                   const from = new Date(activeFromKey + "-01");
-                  const now = new Date();
-                  return (now.getFullYear() - from.getFullYear()) * 12 + (now.getMonth() - from.getMonth());
+                  const [ly, lm] = lastIpcKey.split('-').map(Number);
+                  return (ly - from.getFullYear()) * 12 + (lm - 1 - from.getMonth());
                 })();
                 const disabled = months !== null && monthsActive < months;
                 return (
                   <button key={label} disabled={disabled} onClick={() => {
-                    if (months === null) { setRangeFrom(firstMonth); setRangeTo(new Date().toISOString().slice(0,7)); }
-                    else { const d = new Date(); d.setMonth(d.getMonth() - months); setRangeFrom(d.toISOString().slice(0,7)); setRangeTo(new Date().toISOString().slice(0,7)); }
+                    if (months === null) { setRangeFrom(firstMonth); setRangeTo(lastIpcKey); }
+                    else { const [ly, lm] = lastIpcKey.split('-').map(Number); const d = new Date(ly, lm - 1 - (months - 1), 1); setRangeFrom(d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0")); setRangeTo(lastIpcKey); }
                   }} title={disabled ? `La persona lleva menos de ${title} en la empresa` : title}
                   className={"px-2.5 py-1 rounded-lg text-xs font-bold border transition-all " + (disabled ? "bg-gray-50 border-gray-100 text-gray-300 cursor-not-allowed" : "bg-white border-gray-200 hover:bg-gray-900 hover:text-white hover:border-gray-900")}>
                     {label}
