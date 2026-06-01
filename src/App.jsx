@@ -4506,7 +4506,9 @@ export default function App() {
       // Detect Cash2 change
       const existing = employees.find(e => e.id === emp.id);
       const now = new Date();
-      const targetMonth = applyNextMonth ? new Date(now.getFullYear(), now.getMonth() + 1, 1) : new Date(now.getFullYear(), now.getMonth(), 1);
+      const targetMonth = specificMonth
+        ? new Date(specificMonth + "-15")
+        : applyNextMonth ? new Date(now.getFullYear(), now.getMonth() + 1, 1) : new Date(now.getFullYear(), now.getMonth(), 1);
       const monthYear = targetMonth.toLocaleDateString("en-US", { year:"numeric", month:"long" });
       // Detect resignation (activeTo added)
       if (emp.activeTo && (!existing || !existing.activeTo)) {
@@ -5781,21 +5783,21 @@ export default function App() {
                           const empRows = list.map(e => `<tr>
                             <td style="padding:5px 8px;font-size:10px">${e.name}</td>
                             ${pts.map(pt => `<td style="padding:5px 8px;font-size:10px;text-align:right">${e.payments[pt] > 0 ? (pt==="ARS"||pt==="Mono" ? "$"+Math.round(e.payments[pt]).toLocaleString("es-AR") : "U$"+e.payments[pt].toLocaleString("es-AR")) : ""}</td>`).join("")}
-                            <td style="padding:5px 8px;font-size:10px;text-align:right;font-weight:700">${fARS(toARS(e.payments,dolarVal))}</td>
+                            <td style="padding:5px 8px;font-size:10px;text-align:right;font-weight:700">${fUSD(dolarVal>0?toARS(e.payments,dolarVal)/dolarVal:toUSD(e.payments))}</td>
                           </tr>`).join("");
                           const totPay = {};
                           pts.forEach(pt => { totPay[pt] = list.reduce((s,e) => s+(e.payments[pt]||0),0); });
-                          const totARS = list.reduce((s,e) => s+toARS(e.payments,dolarVal),0);
+                          const totUSDrow = dolarVal>0 ? list.reduce((s,e)=>s+toARS(e.payments,dolarVal),0)/dolarVal : list.reduce((s,e)=>s+toUSD(e.payments),0);
                           return `
                             <tr><td colspan="${pts.length+2}" style="padding:8px;background:#1f2937;color:white;font-weight:700;font-size:11px">${area} — ${list.length} empleados</td></tr>
                             ${empRows}
                             <tr style="background:#f3f4f6;font-weight:700">
                               <td style="padding:5px 8px;font-size:10px">Subtotal</td>
                               ${pts.map(pt => `<td style="padding:5px 8px;font-size:10px;text-align:right">${totPay[pt]>0?(pt==="ARS"||pt==="Mono"?"$"+Math.round(totPay[pt]).toLocaleString("es-AR"):"U$"+totPay[pt].toLocaleString("es-AR")):""}</td>`).join("")}
-                              <td style="padding:5px 8px;font-size:10px;text-align:right">${fARS(totARS)}</td>
+                              <td style="padding:5px 8px;font-size:10px;text-align:right">${fUSD(totUSDrow)}</td>
                             </tr>`;
                         }).join("");
-                        const grandTotal = activeWithSnap.reduce((s,e) => s+toARS(e.payments,dolarVal),0);
+                        const grandTotal = dolarVal>0 ? activeWithSnap.reduce((s,e)=>s+toARS(e.payments,dolarVal),0)/dolarVal : activeWithSnap.reduce((s,e)=>s+toUSD(e.payments),0);
                         const flujoCrypto2 = (payTotals.Crypto?.rawSum||0)+(payTotals.HealthCrypto?.rawSum||0)+(payTotals.AllowanceCrypto?.rawSum||0);
                         const flujoCanada2 = (payTotals.Canada?.rawSum||0)+(payTotals.HealthCanada?.rawSum||0)+(payTotals.AllowanceCanada?.rawSum||0);
                         const monoUSD2 = dolarVal > 0 ? (payTotals.Mono?.rawSum||0)/dolarVal : 0;
@@ -5833,13 +5835,13 @@ export default function App() {
                         </style></head><body>
                           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-bottom:2px solid #1f2937;padding-bottom:8px">
                             <div style="font-size:16px;font-weight:900">Nómina — ${MONTHS[month]} ${year}</div>
-                            <div style="font-size:10px;color:#6b7280">${activeWithSnap.length} empleados activos · Total: ${fARS(grandTotal)}</div>
+                            <div style="font-size:10px;color:#6b7280">${activeWithSnap.length} empleados activos · Total: ${fUSD(grandTotal)}</div>
                           </div>
                           <table>
                             <thead><tr>
                               <th style="text-align:left">Nombre</th>
                               ${pts.map(pt => `<th>${PAYMENT_META[pt].label}</th>`).join("")}
-                              <th>Total ARS</th>
+                              <th>Total USD</th>
                             </tr></thead>
                             <tbody>${rows}</tbody>
                           </table>
@@ -5875,16 +5877,18 @@ export default function App() {
                     </div>
                     {areas2.map(area => {
                       const emps = activeWithSnap.filter(e => (e.area||"Sin área") === area).sort((a,b) => a.name.localeCompare(b.name));
-                      const areaTotal = emps.reduce((s,e) => s + toARS(e.payments, dolar), 0);
+                      const areaTotalUSD = dolar > 0 ? emps.reduce((s,e) => s + toARS(e.payments, dolar), 0) / dolar : emps.reduce((s,e) => s + toUSD(e.payments), 0);
                       return (
                         <div key={area} className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
                           <div className="flex items-center justify-between px-5 py-3 bg-green-50 border-b border-green-100">
                             <span className="font-bold text-green-800">{area} <span className="font-normal text-green-600 text-xs">({emps.length} emp.)</span></span>
-                            <span className="text-sm font-semibold text-green-700">{fARS(areaTotal)}</span>
+                            <span className="text-sm font-semibold text-green-700">{fUSD(areaTotalUSD)}</span>
                           </div>
                           <table className="w-full text-sm">
                             <tbody>
-                              {emps.map(e => (
+                              {emps.map(e => {
+                                const empUSD = dolar > 0 ? toARS(e.payments, dolar) / dolar : toUSD(e.payments);
+                                return (
                                 <tr key={e.id} className="border-b border-gray-50 hover:bg-gray-50 cursor-pointer" onClick={() => setProfileEmp(employees.find(x => x.id === e.id))}>
                                   <td className="px-5 py-2">
                                     <div className="flex items-center gap-2">
@@ -5898,9 +5902,10 @@ export default function App() {
                                       <span key={pt} className="ml-2">{PAYMENT_META[pt].label} {pt==="ARS"||pt==="Mono" ? fARS(e.payments[pt]) : "U$"+e.payments[pt].toLocaleString("es-AR")}</span>
                                     ))}
                                   </td>
-                                  <td className="px-5 py-2 text-right font-bold text-gray-800">{fARS(toARS(e.payments, dolar))}</td>
+                                  <td className="px-5 py-2 text-right font-bold text-gray-800">{fUSD(empUSD)}</td>
                                 </tr>
-                              ))}
+                                );
+                              })}
                             </tbody>
                           </table>
                         </div>
@@ -6013,24 +6018,26 @@ export default function App() {
                         <span className="text-sm text-gray-400">{activeWithSnap.length} empleados activos</span>
                         <button onClick={() => {
                           const dolarVal2 = dolarMap[key] || 0;
-                          const grandTotalARS = activeWithSnap.reduce((s,e) => s + toARS(e.payments, dolarVal2), 0);
+                          const grandTotalUSD = dolarVal2 > 0 ? activeWithSnap.reduce((s,e) => s + toARS(e.payments, dolarVal2), 0) / dolarVal2 : activeWithSnap.reduce((s,e) => s + toUSD(e.payments), 0);
                           const areaRows = allAreas.map(area => {
                             const emps2 = activeWithSnap.filter(e => (e.area||"Sin área") === area).sort((a,b) => a.name.localeCompare(b.name));
-                            const totARS = emps2.reduce((s,e) => s + toARS(e.payments, dolarVal2), 0);
-                            const empRows = emps2.map(e => `<tr>
+                            const totUSD = dolarVal2 > 0 ? emps2.reduce((s,e) => s + toARS(e.payments, dolarVal2), 0) / dolarVal2 : emps2.reduce((s,e) => s + toUSD(e.payments), 0);
+                            const empRows = emps2.map(e => {
+                              const eUSD = dolarVal2 > 0 ? toARS(e.payments, dolarVal2) / dolarVal2 : toUSD(e.payments);
+                              return `<tr>
                               <td style="padding:5px 8px;font-size:10px">${e.name}</td>
                               <td style="padding:5px 8px;font-size:10px">${e.team||""} · ${e.rank||""}</td>
-                              <td style="padding:5px 8px;font-size:10px;text-align:right;font-weight:700">${fARS(toARS(e.payments, dolarVal2))}</td>
-                            </tr>`).join("");
+                              <td style="padding:5px 8px;font-size:10px;text-align:right;font-weight:700">${fUSD(eUSD)}</td>
+                            </tr>`;}).join("");
                             return `
                               <tr><td colspan="3" style="padding:8px;background:#1f2937;color:white;font-weight:700;font-size:11px">${area} — ${emps2.length} empleados</td></tr>
                               ${empRows}
                               <tr style="background:#f3f4f6;font-weight:700">
                                 <td style="padding:5px 8px;font-size:10px" colspan="2">Subtotal ${area}</td>
-                                <td style="padding:5px 8px;font-size:10px;text-align:right">${fARS(totARS)}</td>
+                                <td style="padding:5px 8px;font-size:10px;text-align:right">${fUSD(totUSD)}</td>
                               </tr>`;
                           }).join("");
-                          openPrint(`<!DOCTYPE html><html><head><meta charset='UTF-8'><style>${pCSS}</style></head><body><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-bottom:2px solid #1f2937;padding-bottom:8px"><div style="font-size:16px;font-weight:900">Nómina por Área — ${MONTHS[month]} ${year}</div><div style="font-size:10px;color:#6b7280">${activeWithSnap.length} empleados activos · Total: ${fARS(grandTotalARS)}</div></div><table><thead><tr><th style="text-align:left">Nombre</th><th style="text-align:left">Team / Cargo</th><th>Total ARS</th></tr></thead><tbody>${areaRows}</tbody></table><div style="margin-top:16px;background:#1f2937;color:white;border-radius:6px;padding:8px 14px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#9ca3af">Total general</span><span style="font-size:16px;font-weight:900">${fARS(grandTotalARS)}</span></div><div style="margin-top:12px;text-align:right;font-size:9px;color:#9ca3af">KiSP Nómina · ${new Date().toLocaleDateString("es-AR")}</div></body></html>`);
+                          openPrint(`<!DOCTYPE html><html><head><meta charset='UTF-8'><style>${pCSS}</style></head><body><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-bottom:2px solid #1f2937;padding-bottom:8px"><div style="font-size:16px;font-weight:900">Nómina por Área — ${MONTHS[month]} ${year}</div><div style="font-size:10px;color:#6b7280">${activeWithSnap.length} empleados activos · Total: ${fUSD(grandTotalUSD)}</div></div><table><thead><tr><th style="text-align:left">Nombre</th><th style="text-align:left">Team / Cargo</th><th>Total USD</th></tr></thead><tbody>${areaRows}</tbody></table><div style="margin-top:16px;background:#1f2937;color:white;border-radius:6px;padding:8px 14px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#9ca3af">Total general</span><span style="font-size:16px;font-weight:900">${fUSD(grandTotalUSD)}</span></div><div style="margin-top:12px;text-align:right;font-size:9px;color:#9ca3af">KiSP Nómina · ${new Date().toLocaleDateString("es-AR")}</div></body></html>`);
                         }} className="flex items-center gap-1 bg-blue-600 text-white px-3 py-2 rounded-xl text-sm font-bold hover:bg-blue-700">
                           🖨 Con montos
                         </button>
@@ -6048,8 +6055,7 @@ export default function App() {
                     </div>
                     {allAreas.map(area => {
                       const emps = activeWithSnap.filter(e => (e.area||"Sin área") === area).sort((a,b) => a.name.localeCompare(b.name));
-                      const totalARS = emps.reduce((s,e) => s + toARS(e.payments, dolar), 0);
-                      const totalUSD = emps.reduce((s,e) => s + (e.payments.Crypto||0)+(e.payments.Canada||0)+(e.payments.Healthcare||0)+(e.payments.Allowance||0)+(e.payments.Cash2||0)+(e.payments.Bonus||0), 0);
+                      const areaTotalUSD2 = dolar > 0 ? emps.reduce((s,e) => s + toARS(e.payments, dolar), 0) / dolar : emps.reduce((s,e) => s + toUSD(e.payments), 0);
                       return (
                         <div key={area} className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
                           <div className="flex items-center justify-between px-5 py-3 bg-blue-50 border-b border-blue-100">
@@ -6058,18 +6064,19 @@ export default function App() {
                               <span className="text-xs bg-blue-100 text-blue-600 font-semibold px-2 py-0.5 rounded-full">{emps.length} emp.</span>
                             </div>
                             <div className="text-right">
-                              <div className="text-sm font-bold text-blue-800">{fARS(totalARS)}</div>
-                              {totalUSD > 0 && <div className="text-xs text-blue-500">U$ {totalUSD.toLocaleString("es-AR")}</div>}
+                              <div className="text-sm font-bold text-blue-800">{fUSD(areaTotalUSD2)}</div>
                             </div>
                           </div>
                           <table className="w-full text-sm">
                             <thead><tr className="text-xs text-gray-400 uppercase border-b border-gray-100">
                               <th className="text-left px-5 py-2 font-medium">Nombre</th>
                               <th className="text-left px-5 py-2 font-medium">Team / Cargo</th>
-                              <th className="text-right px-5 py-2 font-medium">Total ARS</th>
+                              <th className="text-right px-5 py-2 font-medium">Total USD</th>
                             </tr></thead>
                             <tbody>
-                              {emps.map(e => (
+                              {emps.map(e => {
+                                const empUSD2 = dolar > 0 ? toARS(e.payments, dolar) / dolar : toUSD(e.payments);
+                                return (
                                 <tr key={e.id} className="border-b border-gray-50 hover:bg-gray-50 cursor-pointer" onClick={() => setProfileEmp(employees.find(x => x.id === e.id))}>
                                   <td className="px-5 py-2.5">
                                     <div className="flex items-center gap-2">
@@ -6078,9 +6085,10 @@ export default function App() {
                                     </div>
                                   </td>
                                   <td className="px-5 py-2.5 text-gray-400 text-xs">{e.team} · {e.rank}</td>
-                                  <td className="px-5 py-2.5 text-right font-bold text-gray-800">{fARS(toARS(e.payments, dolar))}</td>
+                                  <td className="px-5 py-2.5 text-right font-bold text-gray-800">{fUSD(empUSD2)}</td>
                                 </tr>
-                              ))}
+                                );
+                              })}
                             </tbody>
                           </table>
                         </div>
