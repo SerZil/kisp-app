@@ -4535,8 +4535,7 @@ export default function App() {
         // Clear bonus for specific month
         emp = { ...emp, bonusHistory: (existing?.bonusHistory || []).filter(b => b.month !== newBonusMonth) };
       }
-      const _today2 = new Date().toISOString().slice(0, 10);
-      const lastSnap2 = existing && existing.history.length > 0 ? snapshotAt(existing, _today2) : null;
+      const lastSnap2 = existing && existing.history.length > 0 ? existing.history[existing.history.length - 1] : null;
       const oldCrypto = lastSnap2?.payments?.Crypto || 0;
       const newCrypto = emp.payments ? (emp.payments.Crypto || 0) : 0;
       const oldCanada = lastSnap2?.payments?.Canada || 0;
