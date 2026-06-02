@@ -4030,7 +4030,7 @@ export default function App() {
       to: "Ezequiel Stolar <ezequielstolar@gmail.com>",
       cc: "Robert Kendal <rkendal@kisp.com>",
       subject: "Bonus Update — {name} · {monthYear}",
-      body: "Hi Ezequiel,\n\nPlease be advised that as of {monthYear}, {name} will be receiving a bonus of ${bonusAmount}.\n\nKindly process this accordingly.\n\nThank you!"
+      body: "Hi Ezequiel,\n\nPlease be advised that {name} will be receiving a one-time bonus of ${bonusAmount} for the month of {monthYear} only.\n\nKindly process this accordingly.\n\nThank you!"
     },
     cryptoChange: {
       to: "Mary Velasco <mvelasco@kisptech.com>",
