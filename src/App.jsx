@@ -4514,11 +4514,6 @@ export default function App() {
       if (emp.activeTo && (!existing || !existing.activeTo)) {
         openGmailDraft("resignation", emp);
       }
-      const oldCash2 = lastSnap2?.payments?.Cash2 || 0;
-      const newCash2 = emp.payments ? (emp.payments.Cash2 || 0) : 0;
-      if (newCash2 !== oldCash2 && newCash2 > 0) {
-        openGmailDraft("cash2Change", { ...emp, _monthYear: monthYear });
-      }
       const newBonus = emp.bonusAmount || 0;
       const newBonusMonth = emp.bonusMonth || "";
       const oldEntry = (existing?.bonusHistory || []).find(b => b.month === newBonusMonth);
@@ -4536,6 +4531,11 @@ export default function App() {
         emp = { ...emp, bonusHistory: (existing?.bonusHistory || []).filter(b => b.month !== newBonusMonth) };
       }
       const lastSnap2 = existing && existing.history.length > 0 ? existing.history[existing.history.length - 1] : null;
+      const oldCash2 = lastSnap2?.payments?.Cash2 || 0;
+      const newCash2 = emp.payments ? (emp.payments.Cash2 || 0) : 0;
+      if (newCash2 !== oldCash2 && newCash2 > 0) {
+        openGmailDraft("cash2Change", { ...emp, _monthYear: monthYear });
+      }
       const oldCrypto = lastSnap2?.payments?.Crypto || 0;
       const newCrypto = emp.payments ? (emp.payments.Crypto || 0) : 0;
       const oldCanada = lastSnap2?.payments?.Canada || 0;
