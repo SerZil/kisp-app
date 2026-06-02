@@ -4514,7 +4514,7 @@ export default function App() {
       if (emp.activeTo && (!existing || !existing.activeTo)) {
         openGmailDraft("resignation", emp);
       }
-      const oldCash2 = existing && existing.payments ? (existing.payments.Cash2 || 0) : 0;
+      const oldCash2 = lastSnap2?.payments?.Cash2 || 0;
       const newCash2 = emp.payments ? (emp.payments.Cash2 || 0) : 0;
       if (newCash2 !== oldCash2 && newCash2 > 0) {
         openGmailDraft("cash2Change", { ...emp, _monthYear: monthYear });
