@@ -6200,6 +6200,7 @@ export default function App() {
           teams={teams}
           ranks={ranks}
           areas={areas}
+          dataByArea={dataByArea}
           supervisors={[...new Set(employees.filter(e => !e.activeTo).map(e => e.name).filter(Boolean))].sort()}
           currentKey={key}
           onSave={saveEmployee}
@@ -6655,7 +6656,7 @@ const ITEMS = [
   { key:"Cash2",      label:"Cash 2",     unit:"USD", color:"green",  note:"Siempre BsAs" },
 ];
 
-function EmployeeModal({ data, mode, teams, ranks, areas, supervisors, currentKey, onSave, onClose }) {
+function EmployeeModal({ data, mode, teams, ranks, areas, dataByArea, supervisors, currentKey, onSave, onClose }) {
   // Initialize payments from history snapshot at today (avoids corrupted top-level payments)
   const _initPayments = (() => {
     if (data.history && data.history.length > 0) {
