@@ -6509,7 +6509,16 @@ function EmployeeModal({ data, mode, teams, ranks, areas, supervisors, currentKe
     setSelectedTrunk(t);
     setF(p => {
       const newPayments = { ...p.payments };
-      if (!newPayments[t]) newPayments[t] = 0;
+      // Si el trunk destino está vacío, transferir el monto del trunk activo
+      if (!newPayments[t]) {
+        const fromTrunk = TRUNKS.find(tr => tr !== t && (p.payments[tr] || 0) > 0);
+        if (fromTrunk) {
+          newPayments[t] = p.payments[fromTrunk];
+          newPayments[fromTrunk] = 0;
+        } else {
+          newPayments[t] = 0;
+        }
+      }
       if (t === "ARS") newPayments.Healthcare = 0;
       return { ...p, payments: newPayments };
     });
