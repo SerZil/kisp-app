@@ -3972,6 +3972,10 @@ export default function App() {
   const [teams, setTeams]         = useState(TEAMS_INIT);
   const [ranks, setRanks]         = useState(RANKS_INIT);
   const [areas, setAreas]         = useState(AREAS);
+  const [dataByArea, setDataByArea] = useState(() => {
+    try { const s = localStorage.getItem("kisp-data-by-area"); return s ? JSON.parse(s) : DATA_BY_AREA; }
+    catch { return DATA_BY_AREA; }
+  });
 
   const [year, setYear]           = useState(() => new Date().getFullYear());
   const [month, setMonth]         = useState(() => new Date().getMonth());
@@ -4088,6 +4092,7 @@ export default function App() {
   const [editDolarCrypto, setEditDolarCrypto] = useState(false);
   const [useNominaCrypto, setUseNominaCrypto] = useState(() => localStorage.getItem("kisp-use-crypto") === null ? true : localStorage.getItem("kisp-use-crypto") === "true");
   useEffect(() => { localStorage.setItem("kisp-use-crypto", useNominaCrypto); }, [useNominaCrypto]);
+  useEffect(() => { localStorage.setItem("kisp-data-by-area", JSON.stringify(dataByArea)); }, [dataByArea]);
   const [modal, setModal]         = useState(null);
   const [profileEmp, setProfileEmp] = useState(null);
   const [printData, setPrintData] = useState(null);
@@ -4418,8 +4423,8 @@ export default function App() {
   }, [activeWithSnap, dolar]);
 
   const teamOptions = useMemo(() => {
-    const base = areaFilter !== "All" && DATA_BY_AREA[areaFilter]
-      ? DATA_BY_AREA[areaFilter].teams
+    const base = areaFilter !== "All" && dataByArea[areaFilter]
+      ? dataByArea[areaFilter].teams
       : Array.from(new Set(activeWithSnap.map(e => e.team))).sort();
     return ["All", ...base];
   }, [activeWithSnap, areaFilter]);
@@ -4432,8 +4437,8 @@ export default function App() {
   }, [activeWithSnap, areaFilter]);
 
   const cargoOptions = useMemo(() => {
-    const base = areaFilter !== "All" && DATA_BY_AREA[areaFilter]
-      ? DATA_BY_AREA[areaFilter].cargos
+    const base = areaFilter !== "All" && dataByArea[areaFilter]
+      ? dataByArea[areaFilter].cargos
       : Array.from(new Set(activeWithSnap.map(e => e.rank))).sort();
     return ["All", ...base];
   }, [activeWithSnap, areaFilter]);
@@ -6131,7 +6136,14 @@ export default function App() {
               }} usedCount={item => employees.reduce((c, e) => c + e.history.filter(s => s.rank === item).length, 0)} />
               <ConfigList title="Áreas" icon="🗂️" items={areas} onUpdate={(updated, oldVal, newVal) => {
                 setAreas(updated);
-                if (oldVal && newVal) setEmployees(p => p.map(e => e.area === oldVal ? { ...e, area: newVal } : e));
+                if (oldVal && newVal) {
+                  setEmployees(p => p.map(e => e.area === oldVal ? { ...e, area: newVal } : e));
+                  setDataByArea(p => {
+                    if (!p[oldVal]) return p;
+                    const n = { ...p }; n[newVal] = n[oldVal]; delete n[oldVal]; return n;
+                  });
+                }
+                if (!newVal && oldVal) setDataByArea(p => { const n = { ...p }; delete n[oldVal]; return n; });
                 showToast("Áreas actualizadas");
               }} usedCount={item => employees.filter(e => e.area === item).length} />
               <ConfigList title="Supervisores" icon="👤" items={Array.from(new Set(employees.filter(e => e.supervisor).map(e => e.supervisor))).sort()} onUpdate={(updated, oldVal, newVal) => {
@@ -6139,6 +6151,9 @@ export default function App() {
                 showToast("Supervisores actualizados");
               }} usedCount={item => employees.filter(e => e.supervisor === item).length} readOnly />
             </div>
+
+            {/* AREAS & TEAMS/CARGOS */}
+            <DataByAreaConfig dataByArea={dataByArea} setDataByArea={setDataByArea} showToast={showToast} />
 
             {/* EMAIL TEMPLATES */}
             <EmailTemplatesConfig emailTemplates={emailTemplates} setEmailTemplates={setEmailTemplates} fillTemplate={fillTemplate} />
@@ -6217,6 +6232,168 @@ export default function App() {
 }
 
 // ── CONFIG LIST ───────────────────────────────────────────────────────────────
+function MiniConfigList({ title, items, onUpdate }) {
+  const [editing, setEditing] = useState(null);
+  const [editVal, setEditVal] = useState("");
+  const [adding, setAdding]   = useState(false);
+  const [newVal, setNewVal]   = useState("");
+
+  function saveEdit(i) {
+    const v = editVal.trim();
+    if (!v || items.some((x, j) => x === v && j !== i)) { setEditing(null); return; }
+    const u = [...items]; u[i] = v;
+    onUpdate(u); setEditing(null);
+  }
+  function del(i) { onUpdate(items.filter((_, j) => j !== i)); }
+  function add() {
+    const v = newVal.trim();
+    if (!v || items.includes(v)) return;
+    onUpdate([...items, v]);
+    setNewVal(""); setAdding(false);
+  }
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div className="px-4 py-2.5 border-b border-gray-100 flex items-center justify-between">
+        <span className="font-semibold text-sm text-gray-700">{title}</span>
+        <button onClick={() => { setAdding(true); setEditing(null); }}
+          className="text-xs text-blue-600 hover:text-blue-800 font-bold">+ Agregar</button>
+      </div>
+      {adding && (
+        <div className="px-4 py-2 bg-blue-50 border-b border-blue-100 flex gap-2 items-center">
+          <input autoFocus className="flex-1 border border-blue-200 rounded px-2 py-1 text-xs focus:outline-none bg-white"
+            placeholder="Nombre..." value={newVal} onChange={e => setNewVal(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter") add(); if (e.key === "Escape") { setAdding(false); setNewVal(""); } }} />
+          <button onClick={add} className="px-2 py-1 bg-blue-600 text-white rounded text-xs font-bold">ok</button>
+          <button onClick={() => { setAdding(false); setNewVal(""); }} className="text-gray-400 text-xs px-1">x</button>
+        </div>
+      )}
+      <div className="max-h-48 overflow-y-auto divide-y divide-gray-50">
+        {items.length === 0 && <div className="px-4 py-3 text-xs text-gray-400 italic">Sin items</div>}
+        {items.map((item, i) => (
+          <div key={i} className="px-4 py-2 flex items-center gap-2 hover:bg-gray-50 group">
+            {editing === i ? (
+              <>
+                <input autoFocus className="flex-1 border border-blue-300 rounded px-2 py-1 text-xs focus:outline-none"
+                  value={editVal} onChange={e => setEditVal(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter") saveEdit(i); if (e.key === "Escape") setEditing(null); }} />
+                <button onClick={() => saveEdit(i)} className="px-2 py-1 bg-blue-600 text-white rounded text-xs font-bold">ok</button>
+                <button onClick={() => setEditing(null)} className="text-gray-400 text-xs px-1">x</button>
+              </>
+            ) : (
+              <>
+                <span className="flex-1 text-xs text-gray-700">{item}</span>
+                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button onClick={() => { setEditing(i); setEditVal(item); }} className="p-1 rounded hover:bg-blue-50 text-blue-400">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                  </button>
+                  <button onClick={() => del(i)} className="p-1 rounded hover:bg-red-50 text-red-400">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DataByAreaConfig({ dataByArea, setDataByArea, showToast }) {
+  const [addingArea, setAddingArea] = useState(false);
+  const [newAreaVal, setNewAreaVal] = useState("");
+  const [openArea, setOpenArea]     = useState(null);
+  const [confirmDel, setConfirmDel] = useState(null);
+
+  function addArea() {
+    const v = newAreaVal.trim().toUpperCase();
+    if (!v || dataByArea[v]) return;
+    setDataByArea(p => ({ ...p, [v]: { teams: [], cargos: [] } }));
+    setNewAreaVal(""); setAddingArea(false);
+    showToast("Área agregada");
+  }
+  function removeArea(area) {
+    setDataByArea(p => { const n = { ...p }; delete n[area]; return n; });
+    setConfirmDel(null); setOpenArea(null);
+    showToast("Área eliminada");
+  }
+  function updateList(area, key, updated) {
+    setDataByArea(p => ({ ...p, [area]: { ...p[area], [key]: updated } }));
+  }
+
+  const areaKeys = Object.keys(dataByArea);
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-xl">🗺️</span>
+          <div>
+            <div className="font-bold text-gray-800">Teams & Cargos por Área</div>
+            <div className="text-xs text-gray-400">{areaKeys.length} áreas · Configura los teams y cargos disponibles por área</div>
+          </div>
+        </div>
+        <button onClick={() => { setAddingArea(true); setConfirmDel(null); }}
+          className="px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-blue-600 hover:bg-blue-700">
+          + Área
+        </button>
+      </div>
+      {addingArea && (
+        <div className="px-5 py-3 bg-blue-50 border-b border-blue-200 flex gap-2 items-center">
+          <input autoFocus className="flex-1 border border-blue-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none"
+            placeholder="Nombre del área (ej: MARKETING)..." value={newAreaVal} onChange={e => setNewAreaVal(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter") addArea(); if (e.key === "Escape") { setAddingArea(false); setNewAreaVal(""); } }} />
+          <button onClick={addArea} className="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold">ok</button>
+          <button onClick={() => { setAddingArea(false); setNewAreaVal(""); }} className="px-3 py-2 text-gray-500 text-sm">x</button>
+        </div>
+      )}
+      <div className="divide-y divide-gray-100">
+        {areaKeys.map(area => (
+          <div key={area}>
+            <button onClick={() => { setOpenArea(openArea === area ? null : area); setConfirmDel(null); }}
+              className="w-full px-5 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors text-left">
+              <span className="font-semibold text-gray-700">{area}</span>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-gray-400">
+                  {(dataByArea[area]?.teams || []).length} teams · {(dataByArea[area]?.cargos || []).length} cargos
+                </span>
+                <span className="text-gray-400 text-xs">{openArea === area ? "▲" : "▼"}</span>
+              </div>
+            </button>
+            {openArea === area && (
+              <div className="px-5 pb-5 pt-2 bg-gray-50 grid grid-cols-1 md:grid-cols-2 gap-4">
+                <MiniConfigList title="Teams" items={dataByArea[area]?.teams || []}
+                  onUpdate={updated => { updateList(area, "teams", updated); showToast("Teams actualizados"); }} />
+                <MiniConfigList title="Cargos" items={dataByArea[area]?.cargos || []}
+                  onUpdate={updated => { updateList(area, "cargos", updated); showToast("Cargos actualizados"); }} />
+                <div className="md:col-span-2 flex justify-end pt-1">
+                  {confirmDel === area ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-red-600 font-medium">¿Eliminar área <strong>{area}</strong>?</span>
+                      <button onClick={() => removeArea(area)} className="px-3 py-1 bg-red-500 text-white rounded-lg text-xs font-bold">Eliminar</button>
+                      <button onClick={() => setConfirmDel(null)} className="text-gray-400 text-xs px-2">x</button>
+                    </div>
+                  ) : (
+                    <button onClick={() => setConfirmDel(area)} className="text-xs text-red-400 hover:text-red-600 transition-colors">
+                      Eliminar área {area}
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+        {areaKeys.length === 0 && (
+          <div className="px-5 py-6 text-center text-sm text-gray-400 italic">
+            No hay áreas configuradas. Agregá una con el botón +.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function ConfigList({ title, icon, items, onUpdate, usedCount, readOnly }) {
   const [editing, setEditing] = useState(null);
   const [editVal, setEditVal] = useState("");
@@ -6583,11 +6760,11 @@ function EmployeeModal({ data, mode, teams, ranks, areas, supervisors, currentKe
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Team</label>
-              <Select key={"team-"+f.area} value={f.team} onChange={v => setF(p => ({ ...p, team: v }))} options={f.area && DATA_BY_AREA[f.area] ? DATA_BY_AREA[f.area].teams : teams} placeholder="Seleccionar" />
+              <Select key={"team-"+f.area} value={f.team} onChange={v => setF(p => ({ ...p, team: v }))} options={f.area && dataByArea[f.area] ? dataByArea[f.area].teams : teams} placeholder="Seleccionar" />
             </div>
             <div>
               <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Cargo</label>
-              <Select key={"cargo-"+f.area} value={f.rank} onChange={v => setF(p => ({ ...p, rank: v }))} options={f.area && DATA_BY_AREA[f.area] ? DATA_BY_AREA[f.area].cargos : ranks} placeholder="Seleccionar" />
+              <Select key={"cargo-"+f.area} value={f.rank} onChange={v => setF(p => ({ ...p, rank: v }))} options={f.area && dataByArea[f.area] ? dataByArea[f.area].cargos : ranks} placeholder="Seleccionar" />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
