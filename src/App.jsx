@@ -3545,7 +3545,7 @@ function EmployeeProfile({ emp, dolarMap, dolarCryptoMap, ipcMap, ranks, onClose
   const firstMonth = useMemo(() => sorted[0]?.from?.slice(0, 7) || "2023-01", [sorted]);
   const [rangeFrom, setRangeFrom] = useState(defaultFrom);
   const lastIpcKey = useMemo(() => Object.keys(ipcMap).filter(k => ipcMap[k] != null).sort().slice(-1)[0] || new Date().toISOString().slice(0,7), [ipcMap]);
-  const [rangeTo, setRangeTo]     = useState(() => Object.keys(ipcMap).filter(k => ipcMap[k] != null).sort().slice(-1)[0] || new Date().toISOString().slice(0,7));
+  const [rangeTo, setRangeTo]     = useState(() => { const lastIpc = Object.keys(ipcMap).filter(k => ipcMap[k] != null).sort().slice(-1)[0] || ""; const curMonth = new Date().toISOString().slice(0,7); return lastIpc > curMonth ? lastIpc : curMonth; });
 
   const chartData = useMemo(() => {
     const pts = [];
