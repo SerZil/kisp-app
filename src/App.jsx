@@ -4074,9 +4074,9 @@ export default function App() {
     },
     monoToCrypto: {
       to: "Mary Velasco <mvelasco@kisptech.com>",
-      cc: "Ezequiel Stolar <ezequielstolar@gmail.com>, Robert Kendal <rkendal@kisp.com>",
+      cc: "Ezequiel Stolar <ezequielstolar@gmail.com>, Eliana Arregui <earregui@kisp.com>, Robert Kendal <rkendal@kisp.com>",
       subject: "USD via USDT — {name} · {monthYear}",
-      body: "Hi Mary,\n\nPlease be advised that effective {monthYear}, {name} will no longer be paid via Monotributo and will instead be paid via USDT.\n\nNew payment breakdown:\n{salaryLines}\n\nKindly add {himHer} to the USDT payment schedule starting {monthYear}.\n\nThank you,"
+      body: "Hi Mary,\n\nPlease be advised that effective {monthYear}, {name} will no longer be paid via Monotributo and will instead be paid via USDT.\n\nPlease find below {hisHer} details:\n\nFull Name: {name}\nDNI: {dni}\nAddress: {address}\nPersonal Email: {personalEmail}\nDepartment: {area}\nNew Salary: {salary}\n\nKindly add {himHer} to the USDT payment schedule starting {monthYear}.\n\nThank you,"
     },
     resignation: {
       to: "Mary Velasco <mvelasco@kisptech.com>",
