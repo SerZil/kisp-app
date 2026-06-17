@@ -4076,7 +4076,7 @@ export default function App() {
       to: "Mary Velasco <mvelasco@kisptech.com>",
       cc: "Ezequiel Stolar <ezequielstolar@gmail.com>, Robert Kendal <rkendal@kisp.com>",
       subject: "USD via USDT — {name} · {monthYear}",
-      body: "Hi Mary,\n\nPlease be advised that effective {monthYear}, {name} will no longer be paid via Monotributo and will instead be paid via USDT.\n\nNew payment breakdown:\n{salary}\n\nKindly add {himHer} to the USDT payment schedule starting {monthYear}.\n\nThank you,"
+      body: "Hi Mary,\n\nPlease be advised that effective {monthYear}, {name} will no longer be paid via Monotributo and will instead be paid via USDT.\n\nNew payment breakdown:\n{salaryLines}\n\nKindly add {himHer} to the USDT payment schedule starting {monthYear}.\n\nThank you,"
     },
     resignation: {
       to: "Mary Velasco <mvelasco@kisptech.com>",
@@ -4459,6 +4459,10 @@ export default function App() {
       const isUSD = k !== "ARS" && k !== "Monotributo";
       return (PAY_LABELS[k] || k) + ": " + (isUSD ? "U$" + v : "$" + Math.round(v).toLocaleString("es-AR"));
     }).join(" + ") : "—";
+    const salaryLines = emp.payments ? Object.entries(emp.payments).filter(([,v]) => v > 0).map(([k,v]) => {
+      const isUSD = k !== "ARS" && k !== "Monotributo";
+      return "- " + (PAY_LABELS[k] || k) + ": " + (isUSD ? "U$" + v : "$" + Math.round(v).toLocaleString("es-AR"));
+    }).join("\n") : "—";
     const arsOnlyParts = emp.payments ? Object.entries(emp.payments).filter(([k,v]) => v > 0 && (k === "ARS" || k === "Monotributo")).map(([k,v]) => {
       return (PAY_LABELS[k] || k) + ": $" + Math.round(v).toLocaleString("es-AR");
     }).join(" + ") : "—";
@@ -4486,6 +4490,7 @@ export default function App() {
       .replace(/\{cryptoAmount\}/g, b(emp.payments && emp.payments.Crypto ? Math.round(emp.payments.Crypto).toLocaleString("es-AR") : "—"))
       .replace(/\{canadaAmount\}/g, b(emp.payments && emp.payments.Canada ? Math.round(emp.payments.Canada).toLocaleString("es-AR") : "—"))
       .replace(/\{monoAmount\}/g, b(emp.payments && emp.payments.Mono ? Math.round(emp.payments.Mono).toLocaleString("es-AR") : "—"))
+      .replace(/\{salaryLines\}/g, salaryLines)
       .replace(/\{changeDirection\}/g, emp._changeDirection || "updated")
       .replace(/\{himHer\}/g, himHer)
       .replace(/\{hisHer\}/g, firstName.endsWith("a") ? "her" : "his")
