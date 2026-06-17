@@ -4072,6 +4072,12 @@ export default function App() {
       subject: "USD via USDT — {name} · {monthYear}",
       body: "Hi Mary,\n\nPlease be advised that effective {monthYear}, {name} will no longer be paid from Canada and will instead be paid via USDT.\n\nKindly remove {himHer} from the Canada USD payment list and add {himHer} to the USDT payment schedule starting {monthYear}.\n\nThank you,"
     },
+    monoToCrypto: {
+      to: "Mary Velasco <mvelasco@kisptech.com>",
+      cc: "Ezequiel Stolar <ezequielstolar@gmail.com>, Robert Kendal <rkendal@kisp.com>",
+      subject: "USD via USDT — {name} · {monthYear}",
+      body: "Hi Mary,\n\nPlease be advised that effective {monthYear}, {name} will no longer be paid via Monotributo and will instead be paid via USDT at ${cryptoAmount}.\n\nKindly add {himHer} to the USDT payment schedule starting {monthYear}.\n\nThank you,"
+    },
     resignation: {
       to: "Mary Velasco <mvelasco@kisptech.com>",
       cc: "",
@@ -4551,9 +4557,12 @@ export default function App() {
       const newCrypto = emp.payments ? (emp.payments.Crypto || 0) : 0;
       const oldCanada = lastSnap2?.payments?.Canada || 0;
       const newCanada = emp.payments ? (emp.payments.Canada || 0) : 0;
+      const oldMono = lastSnap2?.payments?.Mono || 0;
+      const newMono = emp.payments ? (emp.payments.Mono || 0) : 0;
       const isCanadaToCrypto = oldCanada > 0 && newCanada === 0 && oldCrypto === 0 && newCrypto > 0;
       const isCryptoToCanada = oldCrypto > 0 && newCrypto === 0 && newCanada > 0 && oldCanada === 0;
-      if (newCrypto !== oldCrypto && newCrypto > 0 && !isCanadaToCrypto) {
+      const isMonoToCrypto = oldMono > 0 && newMono === 0 && oldCrypto === 0 && newCrypto > 0;
+      if (newCrypto !== oldCrypto && newCrypto > 0 && !isCanadaToCrypto && !isMonoToCrypto) {
         openGmailDraft("cryptoChange", { ...emp, _monthYear: monthYear, _changeDirection: newCrypto > oldCrypto ? "increased" : "decreased" });
       }
       if (isCryptoToCanada) {
@@ -4562,12 +4571,13 @@ export default function App() {
       if (isCanadaToCrypto) {
         openGmailDraft("canadaToCrypto", { ...emp, _monthYear: monthYear });
       }
+      if (isMonoToCrypto) {
+        openGmailDraft("monoToCrypto", { ...emp, _monthYear: monthYear });
+      }
       if (newCanada !== oldCanada && newCanada > 0 && !isCryptoToCanada && !isCanadaToCrypto) {
         openGmailDraft("canadaChange", { ...emp, _monthYear: monthYear, _changeDirection: newCanada > oldCanada ? "increased" : "decreased" });
       }
-      const oldMono = lastSnap2?.payments?.Mono || 0;
-      const newMono = emp.payments ? (emp.payments.Mono || 0) : 0;
-      if (newMono !== oldMono && newMono > 0) {
+      if (newMono !== oldMono && newMono > 0 && !isMonoToCrypto) {
         openGmailDraft("monoChange", { ...emp, _monthYear: monthYear, _changeDirection: newMono > oldMono ? "increased" : "decreased" });
       }
       // Detect trunk change (placeholder — draft to be defined)
