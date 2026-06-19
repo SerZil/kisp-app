@@ -3552,8 +3552,10 @@ function EmployeeProfile({ emp, dolarMap, dolarCryptoMap, ipcMap, ranks, onClose
 
   const chartData = useMemo(() => {
     const pts = [];
-    const start = new Date(rangeFrom + "-01");
-    const end   = new Date(rangeTo   + "-28");
+    const [sy, sm] = rangeFrom.split('-').map(Number);
+    const start = new Date(sy, sm - 1, 1);
+    const [ey, em] = rangeTo.split('-').map(Number);
+    const end = new Date(ey, em - 1, 28);
     const empEnd = emp.activeTo ? new Date(emp.activeTo) : new Date();
     const actualEnd = end < empEnd ? end : empEnd;
     let cur = new Date(start.getFullYear(), start.getMonth(), 1);
