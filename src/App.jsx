@@ -3659,8 +3659,8 @@ function EmployeeProfile({ emp, dolarMap, dolarCryptoMap, ipcMap, ranks, onClose
                 const disabled = months !== null && monthsActive < months;
                 return (
                   <button key={label} disabled={disabled} onClick={() => {
-                    if (months === null) { setRangeFrom(firstMonth); setRangeTo(lastIpcKey); }
-                    else { const [ly, lm] = lastIpcKey.split('-').map(Number); const d = new Date(ly, lm - 1 - (months - 1), 1); setRangeFrom(d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0")); setRangeTo(lastIpcKey); }
+                    if (months === null) { setRangeFrom(firstMonth); setRangeTo(curMonth); }
+                    else { const d = new Date(); d.setMonth(d.getMonth() - (months - 1)); setRangeFrom(d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0")); setRangeTo(curMonth); }
                   }} title={disabled ? `La persona lleva menos de ${title} en la empresa` : title}
                   className={"px-2.5 py-1 rounded-lg text-xs font-bold border transition-all " + (disabled ? "bg-gray-50 border-gray-100 text-gray-300 cursor-not-allowed" : "bg-white border-gray-200 hover:bg-gray-900 hover:text-white hover:border-gray-900")}>
                     {label}
