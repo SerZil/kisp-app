@@ -4181,13 +4181,20 @@ export default function App() {
         console.log("No se pudo obtener dolar blue:", e);
       }
       try {
-        const res = await fetch("https://dolarapi.com/v1/dolares/cripto");
+        // dolarapi.com/v1/dolares/cripto quedó congelado (mismo valor por semanas), se
+        // reemplaza por el promedio de bids de criptoya.com entre USDT/USDC/CCB
+        const res = await fetch("https://criptoya.com/api/dolar");
         if (res.ok) {
           const data = await res.json();
-          if (data.compra) {
+          const cripto = data.cripto || {};
+          const bids = ["usdt", "usdc", "ccb"]
+            .map(coin => cripto[coin]?.bid)
+            .filter(v => typeof v === "number" && v > 0);
+          if (bids.length) {
+            const avgBid = Math.round(bids.reduce((s, v) => s + v, 0) / bids.length);
             const now = new Date();
             const k = mkey(now.getFullYear(), now.getMonth());
-            setDolarCryptoMap(prev => ({ ...prev, [k]: data.compra }));
+            setDolarCryptoMap(prev => ({ ...prev, [k]: avgBid }));
           }
         }
       } catch (e) {
