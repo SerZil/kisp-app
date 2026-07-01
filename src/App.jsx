@@ -4029,6 +4029,12 @@ export default function App() {
       subject: "New Team Member — RELACION DE DEPENDENCIA — {name}",
       body: "Hi Ezequiel,\n\nPlease find below the details for our new team member joining on {startDate}:\n\nFull Name: {name}\nDNI: {dni}\nAddress: {address}\nPersonal Email: {personalEmail}\nDepartment: {area}\nPayment Type: RELACION DE DEPENDENCIA\nSalary: {arsNet}\nStart Date: {startDate}\n\nCould you please reach out to coordinate their onboarding?\n\nThank you!"
     },
+    allowanceChange: {
+      to: "Mary Velasco <mvelasco@kisptech.com>",
+      cc: "Robert Kendal <rkendal@kisp.com>",
+      subject: "Allowance Update — {name} · {monthYear}",
+      body: "Hi Mary,\n\nPlease be advised that as of {monthYear}, {name}'s Allowance will be {changeDirection} by U${allowanceDelta} (from U${allowanceOld} to U${allowanceNew}).\n\nThank you,"
+    },
     cash2Change: {
       to: "Ezequiel Stolar <ezequielstolar@gmail.com>",
       cc: "Robert Kendal <rkendal@kisp.com>",
@@ -4503,6 +4509,9 @@ export default function App() {
       .replace(/\{canadaAmount\}/g, b(emp.payments && emp.payments.Canada ? Math.round(emp.payments.Canada).toLocaleString("es-AR") : "—"))
       .replace(/\{monoAmount\}/g, b(emp.payments && emp.payments.Mono ? Math.round(emp.payments.Mono).toLocaleString("es-AR") : "—"))
       .replace(/\{salaryLines\}/g, salaryLines)
+      .replace(/\{allowanceNew\}/g, b(emp._allowanceNew != null ? emp._allowanceNew : "—"))
+      .replace(/\{allowanceOld\}/g, b(emp._allowanceOld != null ? emp._allowanceOld : "—"))
+      .replace(/\{allowanceDelta\}/g, b(emp._allowanceDelta != null ? emp._allowanceDelta : "—"))
       .replace(/\{changeDirection\}/g, emp._changeDirection || "updated")
       .replace(/\{himHer\}/g, himHer)
       .replace(/\{hisHer\}/g, firstName.endsWith("a") ? "her" : "his")
@@ -4596,6 +4605,12 @@ export default function App() {
       }
       if (newMono !== oldMono && newMono > 0 && !isMonoToCrypto) {
         openGmailDraft("monoChange", { ...emp, _monthYear: monthYear, _changeDirection: newMono > oldMono ? "increased" : "decreased" });
+      }
+      const oldAllowance = lastSnap2?.payments?.Allowance || 0;
+      const newAllowance = emp.payments ? (emp.payments.Allowance || 0) : 0;
+      if (newAllowance !== oldAllowance) {
+        const delta = Math.abs(newAllowance - oldAllowance);
+        openGmailDraft("allowanceChange", { ...emp, _monthYear: monthYear, _changeDirection: newAllowance > oldAllowance ? "increased" : "decreased", _allowanceNew: newAllowance, _allowanceOld: oldAllowance, _allowanceDelta: delta });
       }
       // Detect trunk change (placeholder — draft to be defined)
       const TRUNKS = ["Crypto","Canada","Mono","ARS"];
