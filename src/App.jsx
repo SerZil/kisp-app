@@ -3321,8 +3321,11 @@ function PrintPreview({ emp, dolarMap, dolarCryptoMap, ipcMap, ranks, chartData,
       "body{margin:0;padding:16px;font-size:11px;color:#111;overflow-x:hidden}" +
       "</style></head><body>" + content + "</body></html>");
     w.document.close();
-    w.onload = () => { w.focus(); w.print(); w.close(); };
-    setTimeout(() => { try { w.focus(); w.print(); } catch(e){} }, 800);
+    let printed = false;
+    const doPrint = () => { if (printed) return; printed = true; w.focus(); w.print(); };
+    w.onload = doPrint;
+    w.onafterprint = () => w.close();
+    setTimeout(doPrint, 800);
   }
 
   const maxARS = Math.max(...chartData.map(p => p.ars), 1);
@@ -5284,8 +5287,11 @@ export default function App() {
                       <div style="margin-top:12px;text-align:right;font-size:9px;color:#9ca3af">KiSP Nómina · Generado ${new Date().toLocaleDateString("es-AR")}</div>
                     </body></html>`);
                     w.document.close();
-                    w.onload = () => { w.focus(); w.print(); w.close(); };
-                    setTimeout(() => { try { w.focus(); w.print(); } catch(e){} }, 800);
+                    let printed = false;
+                    const doPrint = () => { if (printed) return; printed = true; w.focus(); w.print(); };
+                    w.onload = doPrint;
+                    w.onafterprint = () => w.close();
+                    setTimeout(doPrint, 800);
                   }}
                   className="shrink-0 bg-blue-600 text-white px-2 py-2 rounded-lg font-bold hover:bg-blue-700 text-center text-lg leading-none sm:text-sm">
                   <span className="hidden sm:inline">🖨 Reporte</span><span className="sm:hidden">🖨</span>
@@ -5814,7 +5820,7 @@ export default function App() {
         {view === "reportes" && (() => {
           const REPORT_TABS = [["nomina","Nómina"],["bonos","Bonos"],["porarea","Por Área"]];
           const pCSS = `@page{margin:12mm;size:A4 landscape}*{box-sizing:border-box;font-family:Arial,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}body{margin:0;padding:12px;font-size:10px;color:#111}table{width:100%;border-collapse:collapse}th{background:#374151;color:white;padding:6px 8px;font-size:9px;text-align:right;white-space:nowrap}th:first-child{text-align:left}tr:nth-child(even){background:#f9fafb}td{border-bottom:1px solid #e5e7eb}`;
-          const openPrint = (html) => { const w=window.open("","_blank"); if(!w){alert("Permitir popups para imprimir");return;} w.document.write(html); w.document.close(); w.onload=()=>{w.focus();w.print();w.close();}; setTimeout(()=>{try{w.focus();w.print();}catch(e){}},800); };
+          const openPrint = (html) => { const w=window.open("","_blank"); if(!w){alert("Permitir popups para imprimir");return;} w.document.write(html); w.document.close(); let printed=false; const doPrint=()=>{if(printed)return;printed=true;w.focus();w.print();}; w.onload=doPrint; w.onafterprint=()=>w.close(); setTimeout(doPrint,800); };
           return (
             <div className="space-y-5">
               {/* Tab selector */}
@@ -5944,8 +5950,11 @@ export default function App() {
                           <div style="margin-top:12px;text-align:right;font-size:9px;color:#9ca3af">KiSP Nómina · Generado ${new Date().toLocaleDateString("es-AR")}</div>
                         </body></html>`);
                         w.document.close();
-                        w.onload = () => { w.focus(); w.print(); w.close(); };
-                        setTimeout(() => { try { w.focus(); w.print(); } catch(e){} }, 800);
+                        let printed = false;
+                        const doPrint = () => { if (printed) return; printed = true; w.focus(); w.print(); };
+                        w.onload = doPrint;
+                        w.onafterprint = () => w.close();
+                        setTimeout(doPrint, 800);
                       }} className="flex items-center gap-1 bg-blue-600 text-white px-3 py-2 rounded-xl text-sm font-bold hover:bg-blue-700">
                         🖨 Con montos
                       </button>
