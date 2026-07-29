@@ -4187,20 +4187,38 @@ export default function App() {
         console.log("No se pudo obtener dolar blue:", e);
       }
       try {
-        // dolarapi.com/v1/dolares/cripto quedó congelado (mismo valor por semanas), se
-        // reemplaza por el promedio de bids de criptoya.com entre USDT/USDC/CCB
-        const res = await fetch("https://criptoya.com/api/dolar");
-        if (res.ok) {
-          const data = await res.json();
-          const cripto = data.cripto || {};
-          const bids = ["usdt", "usdc", "ccb"]
-            .map(coin => cripto[coin]?.bid)
-            .filter(v => typeof v === "number" && v > 0);
-          if (bids.length) {
-            const avgBid = Math.round(bids.reduce((s, v) => s + v, 0) / bids.length);
-            const now = new Date();
-            const k = mkey(now.getFullYear(), now.getMonth());
-            setDolarCryptoMap(prev => ({ ...prev, [k]: avgBid }));
+        // dolarapi.com es rápido (~0.3s); si falla o devuelve algo inválido,
+        // caemos a criptoya.com (promedio de bids USDT/USDC/CCB), que es más
+        // lento pero sirve de respaldo
+        let got = false;
+        try {
+          const res = await fetch("https://dolarapi.com/v1/dolares/cripto");
+          if (res.ok) {
+            const data = await res.json();
+            if (typeof data.compra === "number" && data.compra > 0) {
+              const now = new Date();
+              const k = mkey(now.getFullYear(), now.getMonth());
+              setDolarCryptoMap(prev => ({ ...prev, [k]: data.compra }));
+              got = true;
+            }
+          }
+        } catch (e) {
+          console.log("No se pudo obtener dolar cripto de dolarapi:", e);
+        }
+        if (!got) {
+          const res = await fetch("https://criptoya.com/api/dolar");
+          if (res.ok) {
+            const data = await res.json();
+            const cripto = data.cripto || {};
+            const bids = ["usdt", "usdc", "ccb"]
+              .map(coin => cripto[coin]?.bid)
+              .filter(v => typeof v === "number" && v > 0);
+            if (bids.length) {
+              const avgBid = Math.round(bids.reduce((s, v) => s + v, 0) / bids.length);
+              const now = new Date();
+              const k = mkey(now.getFullYear(), now.getMonth());
+              setDolarCryptoMap(prev => ({ ...prev, [k]: avgBid }));
+            }
           }
         }
       } catch (e) {
