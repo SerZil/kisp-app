@@ -3508,6 +3508,8 @@ function EmployeeProfile({ emp, dolarMap, dolarCryptoMap, ipcMap, ranks, onClose
     return !!(cur?.payments?.Crypto || cur?.payments?.Canada);
   });
   const [newNote, setNewNote] = useState({ text: "", reminder: "" });
+  const [editingNoteId, setEditingNoteId] = useState(null);
+  const [editNoteText, setEditNoteText] = useState("");
 
   const [showNoteHistory, setShowNoteHistory] = useState(false);
 
@@ -3536,6 +3538,23 @@ function EmployeeProfile({ emp, dolarMap, dolarCryptoMap, ipcMap, ranks, onClose
 
   function clearReminder(id) {
     onSaveNotes(emp.id, (emp.notes || []).map(n => n.id === id ? { ...n, reminder: "" } : n));
+  }
+
+  function startEditNote(note) {
+    setEditingNoteId(note.id);
+    setEditNoteText(note.text);
+  }
+
+  function cancelEditNote() {
+    setEditingNoteId(null);
+    setEditNoteText("");
+  }
+
+  function saveEditNote(id) {
+    if (!editNoteText.trim()) return;
+    onSaveNotes(emp.id, (emp.notes || []).map(n => n.id === id ? { ...n, text: editNoteText.trim() } : n));
+    setEditingNoteId(null);
+    setEditNoteText("");
   }
 
   const sorted = useMemo(() => [...emp.history].sort((a, b) => a.from.localeCompare(b.from)), [emp.history]);
@@ -3740,11 +3759,29 @@ function EmployeeProfile({ emp, dolarMap, dolarCryptoMap, ipcMap, ranks, onClose
                 const hasReminder = !!note.reminder;
                 const isPending = hasReminder && note.reminder >= today;
                 const isOverdue = hasReminder && note.reminder < today;
+                const isEditing = editingNoteId === note.id;
                 return (
                   <div key={note.id} className={"rounded-xl border p-3 group " + (isPending ? "bg-amber-50 border-amber-200" : isOverdue ? "bg-red-50 border-red-200" : "bg-gray-50 border-gray-100")}>
+                    {isEditing ? (
+                      <div className="space-y-2">
+                        <textarea rows={3} autoFocus
+                          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-300 resize-none"
+                          value={editNoteText} onChange={e => setEditNoteText(e.target.value)} />
+                        <div className="flex gap-2 justify-end">
+                          <button onClick={cancelEditNote}
+                            className="px-3 py-1.5 rounded-lg border border-gray-200 text-xs text-gray-600 hover:bg-gray-50">Cancelar</button>
+                          <button onClick={() => saveEditNote(note.id)} disabled={!editNoteText.trim()}
+                            className="px-3 py-1.5 rounded-lg bg-gray-900 text-white text-xs font-bold hover:bg-gray-700 disabled:opacity-40">Guardar</button>
+                        </div>
+                      </div>
+                    ) : (
                     <div className="flex items-start justify-between gap-2">
                       <p className="text-sm text-gray-800 flex-1 whitespace-pre-wrap">{note.text}</p>
                       <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-opacity shrink-0">
+                        <button onClick={() => startEditNote(note)} title="Editar nota"
+                          className="text-gray-400 hover:text-gray-600 text-xs px-1.5 py-0.5 rounded border border-gray-200 hover:border-gray-400 bg-white">
+                          Editar
+                        </button>
                         <button onClick={() => deactivateNote(note.id)} title="Archivar nota"
                           className="text-gray-400 hover:text-gray-600 text-xs px-1.5 py-0.5 rounded border border-gray-200 hover:border-gray-400 bg-white">
                           Archivar
@@ -3755,7 +3792,8 @@ function EmployeeProfile({ emp, dolarMap, dolarCryptoMap, ipcMap, ranks, onClose
                         </button>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 mt-2">
+                    )}
+                    {!isEditing && <div className="flex items-center gap-2 mt-2">
                       <span className="text-xs text-gray-400">{note.createdAt}</span>
                       {hasReminder ? (
                         <span className={"inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full " + (isPending ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700")}>
@@ -3767,7 +3805,7 @@ function EmployeeProfile({ emp, dolarMap, dolarCryptoMap, ipcMap, ranks, onClose
                           className="text-xs border border-dashed border-gray-300 rounded-full px-2 py-0.5 text-gray-400 focus:outline-none focus:border-amber-400 cursor-pointer"
                           onChange={e => { if(e.target.value) onSaveNotes(emp.id, (emp.notes||[]).map(n => n.id===note.id ? {...n, reminder:e.target.value} : n)); }} />
                       )}
-                    </div>
+                    </div>}
                   </div>
                 );
               })}
