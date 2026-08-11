@@ -6256,6 +6256,7 @@ export default function App() {
             if (!amt) delete n[id]; else n[id] = { type, amount: amt };
             return n;
           });
+          const clearRaise = (id) => setSimRaises(p => { const n = { ...p }; delete n[id]; return n; });
           // Total en USD: los rubros USD se suman directo, los pesos (ARS/Mono) se convierten con el dolar Blue
           const usdTotal = (pay) => toUSD(pay) + (dolar > 0 ? ((pay.ARS || 0) + (pay.Mono || 0)) / dolar : 0);
           const applyRaise = (e) => {
@@ -6360,7 +6361,11 @@ export default function App() {
                 <option value="All">Todas las áreas</option>
                 {areas.map(a => <option key={a} value={a}>{a}</option>)}
               </select>
-              <span className="text-xs text-gray-400">{empsWithRaise} persona{empsWithRaise === 1 ? "" : "s"} con aumento cargado</span>
+              {empsWithRaise > 0 && (
+                <span className="flex items-center gap-1.5 text-xs font-bold text-amber-700 bg-amber-100 border border-amber-300 rounded-full px-3 py-1">
+                  🧪 Simulación activa — {empsWithRaise} persona{empsWithRaise === 1 ? "" : "s"} con aumento cargado
+                </span>
+              )}
             </div>
 
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden overflow-x-auto">
@@ -6383,12 +6388,14 @@ export default function App() {
                     const totalAfter = usdTotal(applyRaise(e));
                     const arsBeforeRow = arsNomina(e.payments);
                     const arsAfterRow = arsNomina(applyRaise(e));
+                    const hasRaise = raiseAmountOf(e) !== 0;
                     return (
-                      <tr key={e.id} className="border-b border-gray-50 hover:bg-gray-50">
+                      <tr key={e.id} className={"border-b hover:bg-gray-50 " + (hasRaise ? "bg-amber-50/60 border-amber-100" : "border-gray-50")}>
                         <td className="px-4 py-2">
                           <div className="flex items-center gap-2">
                             <div className={"w-6 h-6 " + avatarColor(e.id) + " rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"}>{initials(e.name)}</div>
                             <span className="font-medium text-gray-800">{e.name}</span>
+                            {hasRaise && <span className="text-xs">🧪</span>}
                           </div>
                         </td>
                         <td className="px-4 py-2">
@@ -6414,6 +6421,10 @@ export default function App() {
                               <input type="number" value={amount}
                                 onChange={ev => setRaiseAmount(e.id, type, ev.target.value)}
                                 placeholder="0" className="w-20 text-right border border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-emerald-400" />
+                              {hasRaise && (
+                                <button onClick={() => clearRaise(e.id)} title="Resetear aumento de esta persona"
+                                  className="text-gray-300 hover:text-red-500 text-sm leading-none px-0.5">✕</button>
+                              )}
                             </div>
                           ) : "—"}
                         </td>
