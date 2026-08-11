@@ -6244,22 +6244,32 @@ export default function App() {
             return true;
           });
 
-          const sumBy = (types, after) => activeWithSnap.reduce((s, e) => {
-            const pt = primaryType(e);
-            if (!types.includes(pt)) return s;
-            const base = e.payments[pt] || 0;
-            return s + (after ? base + raiseOf(e) : base);
-          }, 0);
-
-          const cryptoBefore = sumBy(["Crypto"], false), cryptoAfter = sumBy(["Crypto"], true);
-          const canadaBefore = sumBy(["Canada"], false), canadaAfter = sumBy(["Canada"], true);
-          const argBefore    = sumBy(["ARS", "Mono"], false), argAfter = sumBy(["ARS", "Mono"], true);
+          const raiseSumFor = (type) => activeWithSnap.reduce((s, e) => primaryType(e) === type ? s + raiseOf(e) : s, 0);
+          const raiseCrypto = raiseSumFor("Crypto");
+          const raiseCanada = raiseSumFor("Canada");
+          const raiseMono   = raiseSumFor("Mono");
+          const raiseARS    = raiseSumFor("ARS");
           const empsWithRaise = activeWithSnap.filter(e => raiseOf(e) !== 0).length;
 
+          // Misma logica que "Flujos por origen" del Dashboard, para que los totales coincidan
+          const cryptoBefore = (payTotals.Crypto?.rawSum || 0) + (payTotals.HealthCrypto?.rawSum || 0) + (payTotals.AllowanceCrypto?.rawSum || 0);
+          const cryptoAfter  = cryptoBefore + raiseCrypto;
+          const canadaBefore = (payTotals.Canada?.rawSum || 0) + (payTotals.HealthCanada?.rawSum || 0) + (payTotals.AllowanceCanada?.rawSum || 0);
+          const canadaAfter  = canadaBefore + raiseCanada;
+          const monoUSDBefore = dolar > 0 ? (payTotals.Mono?.rawSum || 0) / dolar : 0;
+          const monoUSDAfter  = dolar > 0 ? ((payTotals.Mono?.rawSum || 0) + raiseMono) / dolar : 0;
+          const bsAsBase   = (payTotals.Cash2?.rawSum || 0) + (payTotals.Bonus?.rawSum || 0) + (payTotals.AllowanceBsAs?.rawSum || 0);
+          const bsAsBefore = bsAsBase + monoUSDBefore;
+          const bsAsAfter  = bsAsBase + monoUSDAfter;
+          const arsBefore  = payTotals.ARS?.rawSum || 0;
+          const arsAfter   = arsBefore + raiseARS;
+
+          const fmtUSD = n => "U$ " + Math.round(n).toLocaleString("es-AR");
           const CARDS = [
-            { label: "USDT (Crypto)", before: cryptoBefore, after: cryptoAfter, fmt: n => "U$ " + n.toLocaleString("es-AR"), color: "purple" },
-            { label: "Canada USD",    before: canadaBefore, after: canadaAfter, fmt: n => "U$ " + n.toLocaleString("es-AR"), color: "red" },
-            { label: "ARG (ARS + Mono)", before: argBefore, after: argAfter,   fmt: fARS, color: "blue" },
+            { label: "Crypto (₿)",        before: cryptoBefore, after: cryptoAfter, fmt: fmtUSD, bg: "bg-purple-50",  border: "border-purple-200",  text: "text-purple-700" },
+            { label: "Canada (🍁)",       before: canadaBefore, after: canadaAfter, fmt: fmtUSD, bg: "bg-red-50",     border: "border-red-200",     text: "text-red-700" },
+            { label: "Buenos Aires (🇦🇷)", before: bsAsBefore,   after: bsAsAfter,   fmt: fmtUSD, bg: "bg-sky-50",     border: "border-sky-200",     text: "text-sky-700" },
+            { label: "Pesos ARS (dependencia)", before: arsBefore, after: arsAfter, fmt: fARS,   bg: "bg-emerald-50", border: "border-emerald-200", text: "text-emerald-700" },
           ];
 
           return (
@@ -6275,18 +6285,17 @@ export default function App() {
               </button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               {CARDS.map(c => {
                 const changed = c.after !== c.before;
-                const cc = COLOR[c.color];
                 return (
-                  <div key={c.label} className={"rounded-xl px-4 py-3 border " + cc.bg + " " + cc.border}>
-                    <div className={"text-xs font-bold mb-1 " + cc.text}>{c.label}</div>
+                  <div key={c.label} className={"rounded-xl px-4 py-3 border " + c.bg + " " + c.border}>
+                    <div className={"text-xs font-bold mb-1 " + c.text}>{c.label}</div>
                     <div className="flex items-baseline gap-2 flex-wrap">
                       <span className="text-lg font-black text-gray-900">{c.fmt(c.after)}</span>
                       {changed && <span className="text-xs text-gray-400 line-through">{c.fmt(c.before)}</span>}
                     </div>
-                    {changed && <div className={"text-xs font-semibold mt-0.5 " + cc.text}>+{c.fmt(c.after - c.before)}</div>}
+                    {changed && <div className={"text-xs font-semibold mt-0.5 " + c.text}>+{c.fmt(c.after - c.before)}</div>}
                   </div>
                 );
               })}
@@ -6308,10 +6317,10 @@ export default function App() {
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-200 text-gray-400 text-xs uppercase">
                     <th className="px-4 py-2 text-left">Nombre</th>
-                    <th className="px-4 py-2 text-left">Moneda</th>
-                    <th className="px-4 py-2 text-right">Actual</th>
+                    <th className="px-4 py-2 text-left">Composición salarial</th>
+                    <th className="px-4 py-2 text-right">Total actual</th>
                     <th className="px-4 py-2 text-right">Aumento</th>
-                    <th className="px-4 py-2 text-right">Nuevo</th>
+                    <th className="px-4 py-2 text-right">Total con aumento</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -6321,6 +6330,8 @@ export default function App() {
                     const current = pt ? (e.payments[pt] || 0) : 0;
                     const raiseVal = simRaises[e.id] ?? "";
                     const newVal = current + raiseOf(e);
+                    const totalBefore = arsNomina(e.payments);
+                    const totalAfter = pt ? arsNomina({ ...e.payments, [pt]: newVal }) : totalBefore;
                     return (
                       <tr key={e.id} className="border-b border-gray-50 hover:bg-gray-50">
                         <td className="px-4 py-2">
@@ -6329,27 +6340,50 @@ export default function App() {
                             <span className="font-medium text-gray-800">{e.name}</span>
                           </div>
                         </td>
-                        <td className="px-4 py-2 text-gray-500">{meta ? meta.label : "—"}</td>
-                        <td className="px-4 py-2 text-right font-mono text-gray-600">{pt ? (meta.prefix + current.toLocaleString("es-AR")) : "—"}</td>
+                        <td className="px-4 py-2">
+                          {PAYMENT_TYPES.map(t => e.payments[t] > 0 && (
+                            <div key={t} className={"text-xs font-mono " + COLOR[PAYMENT_META[t].color].text}>
+                              {PAYMENT_META[t].label}: {(t === "ARS" || t === "Mono") ? fARS(e.payments[t]) : "U$ " + e.payments[t].toLocaleString("es-AR")}
+                            </div>
+                          ))}
+                        </td>
+                        <td className="px-4 py-2 text-right font-mono text-gray-600">{fARS(totalBefore)}</td>
                         <td className="px-4 py-2 text-right">
                           {pt ? (
-                            <input type="number" value={raiseVal}
-                              onChange={ev => {
-                                const v = ev.target.value;
-                                setSimRaises(p => {
-                                  const n = { ...p };
-                                  if (v === "" || Number(v) === 0) delete n[e.id]; else n[e.id] = Number(v);
-                                  return n;
-                                });
-                              }}
-                              placeholder="0" className="w-24 text-right border border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-emerald-400" />
+                            <div className="flex items-center justify-end gap-1">
+                              <span className="text-xs text-gray-400">{meta.prefix}</span>
+                              <input type="number" value={raiseVal}
+                                onChange={ev => {
+                                  const v = ev.target.value;
+                                  setSimRaises(p => {
+                                    const n = { ...p };
+                                    if (v === "" || Number(v) === 0) delete n[e.id]; else n[e.id] = Number(v);
+                                    return n;
+                                  });
+                                }}
+                                placeholder="0" className="w-24 text-right border border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-emerald-400" />
+                            </div>
                           ) : "—"}
                         </td>
-                        <td className="px-4 py-2 text-right font-bold text-gray-900">{pt ? (meta.prefix + newVal.toLocaleString("es-AR")) : "—"}</td>
+                        <td className={"px-4 py-2 text-right font-bold " + (totalAfter !== totalBefore ? "text-emerald-700" : "text-gray-900")}>{fARS(totalAfter)}</td>
                       </tr>
                     );
                   })}
                 </tbody>
+                <tfoot>
+                  <tr className="bg-gray-50 border-t-2 border-gray-200 font-black text-gray-900">
+                    <td className="px-4 py-2.5" colSpan={2}>Total ({simEmployees.length} personas)</td>
+                    <td className="px-4 py-2.5 text-right">{fARS(simEmployees.reduce((s, e) => s + arsNomina(e.payments), 0))}</td>
+                    <td></td>
+                    <td className="px-4 py-2.5 text-right text-emerald-700">
+                      {fARS(simEmployees.reduce((s, e) => {
+                        const pt = primaryType(e);
+                        const newVal = (pt ? (e.payments[pt] || 0) : 0) + raiseOf(e);
+                        return s + (pt ? arsNomina({ ...e.payments, [pt]: newVal }) : arsNomina(e.payments));
+                      }, 0))}
+                    </td>
+                  </tr>
+                </tfoot>
               </table>
             </div>
           </div>
