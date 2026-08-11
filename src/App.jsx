@@ -6229,16 +6229,50 @@ export default function App() {
 
         {/* ── SIMULADOR ── */}
         {view === "simulador" && (() => {
+          const availTypes = (e) => PAYMENT_TYPES.filter(t => e.payments[t] > 0);
+          // Por default prioriza cualquier rubro en dolares por sobre los pesos (ARS/Mono)
           const primaryType = (e) => {
-            if (e.payments.Crypto > 0) return "Crypto";
-            if (e.payments.Canada > 0) return "Canada";
-            if (e.payments.Mono   > 0) return "Mono";
-            if (e.payments.ARS    > 0) return "ARS";
-            return null;
+            if (e.payments.Crypto > 0)     return "Crypto";
+            if (e.payments.Canada > 0)     return "Canada";
+            if (e.payments.Cash2 > 0)      return "Cash2";
+            if (e.payments.Bonus > 0)      return "Bonus";
+            if (e.payments.Healthcare > 0) return "Healthcare";
+            if (e.payments.Allowance > 0)  return "Allowance";
+            if (e.payments.Mono > 0)       return "Mono";
+            if (e.payments.ARS > 0)        return "ARS";
+            return availTypes(e)[0] || null;
           };
-          const raiseOf = (e) => Number(simRaises[e.id]) || 0;
+          // { [id]: { type, amount } } — el usuario elige en que rubro de los que cobra la persona va el aumento
+          const raiseTypeOf   = (e) => simRaises[e.id]?.type || primaryType(e);
+          const raiseAmountOf = (e) => Number(simRaises[e.id]?.amount) || 0;
+          const setRaiseType  = (id, type) => setSimRaises(p => ({ ...p, [id]: { type, amount: p[id]?.amount || 0 } }));
+          const setRaiseAmount = (id, type, v) => setSimRaises(p => {
+            const n = { ...p };
+            const amt = v === "" ? 0 : Number(v);
+            if (!amt) delete n[id]; else n[id] = { type, amount: amt };
+            return n;
+          });
           // Total en USD: los rubros USD se suman directo, los pesos (ARS/Mono) se convierten con el dolar Blue
           const usdTotal = (pay) => toUSD(pay) + (dolar > 0 ? ((pay.ARS || 0) + (pay.Mono || 0)) / dolar : 0);
+          const applyRaise = (e) => {
+            const type = raiseTypeOf(e), amt = raiseAmountOf(e);
+            if (!type || !amt) return e.payments;
+            return { ...e.payments, [type]: (e.payments[type] || 0) + amt };
+          };
+          // A que "flujo" del Dashboard pertenece un aumento cargado en `type` para el empleado `e`
+          const bucketOf = (e, type) => {
+            if (type === "Crypto") return "crypto";
+            if (type === "Canada") return "canada";
+            if (type === "ARS")    return "ars";
+            if (type === "Mono")   return "bsAsMono";
+            if (type === "Cash2" || type === "Bonus") return "bsAs";
+            if (type === "Healthcare" || type === "Allowance") {
+              if (e.payments.Crypto > 0) return "crypto";
+              if (e.payments.Canada > 0) return "canada";
+              return "bsAs";
+            }
+            return null;
+          };
 
           const simEmployees = activeWithSnap.filter(e => {
             if (simAreaFilter !== "All" && e.area !== simAreaFilter) return false;
@@ -6246,12 +6280,18 @@ export default function App() {
             return true;
           });
 
-          const raiseSumFor = (type) => activeWithSnap.reduce((s, e) => primaryType(e) === type ? s + raiseOf(e) : s, 0);
-          const raiseCrypto = raiseSumFor("Crypto");
-          const raiseCanada = raiseSumFor("Canada");
-          const raiseMono   = raiseSumFor("Mono");
-          const raiseARS    = raiseSumFor("ARS");
-          const empsWithRaise = activeWithSnap.filter(e => raiseOf(e) !== 0).length;
+          let raiseCrypto = 0, raiseCanada = 0, raiseBsAsUSD = 0, raiseARS = 0;
+          activeWithSnap.forEach(e => {
+            const amt = raiseAmountOf(e);
+            if (!amt) return;
+            const b = bucketOf(e, raiseTypeOf(e));
+            if (b === "crypto") raiseCrypto += amt;
+            else if (b === "canada") raiseCanada += amt;
+            else if (b === "bsAs") raiseBsAsUSD += amt;
+            else if (b === "bsAsMono") raiseBsAsUSD += dolar > 0 ? amt / dolar : 0;
+            else if (b === "ars") raiseARS += amt;
+          });
+          const empsWithRaise = activeWithSnap.filter(e => raiseAmountOf(e) !== 0).length;
 
           // Misma logica que "Flujos por origen" del Dashboard, para que los totales coincidan
           const cryptoBefore = (payTotals.Crypto?.rawSum || 0) + (payTotals.HealthCrypto?.rawSum || 0) + (payTotals.AllowanceCrypto?.rawSum || 0);
@@ -6259,21 +6299,23 @@ export default function App() {
           const canadaBefore = (payTotals.Canada?.rawSum || 0) + (payTotals.HealthCanada?.rawSum || 0) + (payTotals.AllowanceCanada?.rawSum || 0);
           const canadaAfter  = canadaBefore + raiseCanada;
           const monoUSDBefore = dolar > 0 ? (payTotals.Mono?.rawSum || 0) / dolar : 0;
-          const monoUSDAfter  = dolar > 0 ? ((payTotals.Mono?.rawSum || 0) + raiseMono) / dolar : 0;
           const bsAsBase   = (payTotals.Cash2?.rawSum || 0) + (payTotals.Bonus?.rawSum || 0) + (payTotals.AllowanceBsAs?.rawSum || 0);
           const bsAsBefore = bsAsBase + monoUSDBefore;
-          const bsAsAfter  = bsAsBase + monoUSDAfter;
+          const bsAsAfter  = bsAsBefore + raiseBsAsUSD;
           const arsBefore  = payTotals.ARS?.rawSum || 0;
           const arsAfter   = arsBefore + raiseARS;
 
           const fmtUSD = n => "U$ " + Math.round(n).toLocaleString("es-AR");
           const arsUSDBefore = dolar > 0 ? arsBefore / dolar : 0;
           const arsUSDAfter  = dolar > 0 ? arsAfter / dolar : 0;
+          // Misma regla que Nomina (toARSProfile/toARS): Crypto convierte al dolar Crypto si el toggle esta activo,
+          // Canada y Buenos Aires siempre al dolar Blue, ARS/Mono ya estan en pesos.
+          const cryptoRate = useNominaCrypto ? dolarCrypto : dolar;
           const CARDS = [
-            { label: "Crypto (₿)",        before: cryptoBefore,  after: cryptoAfter,  bg: "bg-purple-50",  border: "border-purple-200",  text: "text-purple-700" },
-            { label: "Canada (🍁)",       before: canadaBefore,  after: canadaAfter,  bg: "bg-red-50",     border: "border-red-200",     text: "text-red-700" },
-            { label: "Buenos Aires (🇦🇷)", before: bsAsBefore,    after: bsAsAfter,    bg: "bg-sky-50",     border: "border-sky-200",     text: "text-sky-700" },
-            { label: "Pesos ARS (dependencia)", before: arsUSDBefore, after: arsUSDAfter, bg: "bg-emerald-50", border: "border-emerald-200", text: "text-emerald-700" },
+            { label: "Crypto (₿)",        before: cryptoBefore,  after: cryptoAfter,  equivBefore: cryptoBefore * cryptoRate, equivAfter: cryptoAfter * cryptoRate, bg: "bg-purple-50",  border: "border-purple-200",  text: "text-purple-700" },
+            { label: "Canada (🍁)",       before: canadaBefore,  after: canadaAfter,  equivBefore: canadaBefore * dolar,      equivAfter: canadaAfter * dolar,      bg: "bg-red-50",     border: "border-red-200",     text: "text-red-700" },
+            { label: "Buenos Aires (🇦🇷)", before: bsAsBefore,    after: bsAsAfter,    equivBefore: bsAsBefore * dolar,        equivAfter: bsAsAfter * dolar,        bg: "bg-sky-50",     border: "border-sky-200",     text: "text-sky-700" },
+            { label: "Pesos ARS (dependencia)", before: arsUSDBefore, after: arsUSDAfter, equivBefore: arsBefore, equivAfter: arsAfter, bg: "bg-emerald-50", border: "border-emerald-200", text: "text-emerald-700" },
           ];
 
           return (
@@ -6299,7 +6341,7 @@ export default function App() {
                       <span className="text-lg font-black text-gray-900">{fmtUSD(c.after)}</span>
                       {changed && <span className="text-xs text-gray-400 line-through">{fmtUSD(c.before)}</span>}
                     </div>
-                    <div className="text-xs text-gray-400 mt-0.5">≈ {fARS(c.after * dolar)}</div>
+                    <div className="text-xs text-gray-400 mt-0.5">≈ {fARS(c.equivAfter)}</div>
                     {changed && <div className={"text-xs font-semibold mt-0.5 " + c.text}>+{fmtUSD(c.after - c.before)}</div>}
                   </div>
                 );
@@ -6330,13 +6372,13 @@ export default function App() {
                 </thead>
                 <tbody>
                   {simEmployees.map(e => {
-                    const pt = primaryType(e);
-                    const meta = pt ? PAYMENT_META[pt] : null;
-                    const current = pt ? (e.payments[pt] || 0) : 0;
-                    const raiseVal = simRaises[e.id] ?? "";
-                    const newVal = current + raiseOf(e);
+                    const avail = availTypes(e);
+                    const type = raiseTypeOf(e);
+                    const amount = simRaises[e.id]?.amount ?? "";
                     const totalBefore = usdTotal(e.payments);
-                    const totalAfter = pt ? usdTotal({ ...e.payments, [pt]: newVal }) : totalBefore;
+                    const totalAfter = usdTotal(applyRaise(e));
+                    const arsBeforeRow = arsNomina(e.payments);
+                    const arsAfterRow = arsNomina(applyRaise(e));
                     return (
                       <tr key={e.id} className="border-b border-gray-50 hover:bg-gray-50">
                         <td className="px-4 py-2">
@@ -6354,28 +6396,26 @@ export default function App() {
                         </td>
                         <td className="px-4 py-2 text-right">
                           <div className="font-mono text-gray-600">{fUSD(totalBefore)}</div>
-                          <div className="text-xs text-gray-400">≈ {fARS(totalBefore * dolar)}</div>
+                          <div className="text-xs text-gray-400">≈ {fARS(arsBeforeRow)}</div>
                         </td>
                         <td className="px-4 py-2 text-right">
-                          {pt ? (
+                          {avail.length > 0 ? (
                             <div className="flex items-center justify-end gap-1">
-                              <span className="text-xs text-gray-400">{meta.prefix}</span>
-                              <input type="number" value={raiseVal}
-                                onChange={ev => {
-                                  const v = ev.target.value;
-                                  setSimRaises(p => {
-                                    const n = { ...p };
-                                    if (v === "" || Number(v) === 0) delete n[e.id]; else n[e.id] = Number(v);
-                                    return n;
-                                  });
-                                }}
-                                placeholder="0" className="w-24 text-right border border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-emerald-400" />
+                              {avail.length > 1 ? (
+                                <select value={type} onChange={ev => setRaiseType(e.id, ev.target.value)}
+                                  className="text-xs border border-gray-200 rounded-lg px-1 py-1.5 focus:outline-none">
+                                  {avail.map(t => <option key={t} value={t}>{PAYMENT_META[t].label}</option>)}
+                                </select>
+                              ) : <span className="text-xs text-gray-400">{PAYMENT_META[type].label}</span>}
+                              <input type="number" value={amount}
+                                onChange={ev => setRaiseAmount(e.id, type, ev.target.value)}
+                                placeholder="0" className="w-20 text-right border border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-emerald-400" />
                             </div>
                           ) : "—"}
                         </td>
                         <td className={"px-4 py-2 text-right font-bold " + (totalAfter !== totalBefore ? "text-emerald-700" : "text-gray-900")}>
                           <div>{fUSD(totalAfter)}</div>
-                          <div className="text-xs font-normal text-gray-400">≈ {fARS(totalAfter * dolar)}</div>
+                          <div className="text-xs font-normal text-gray-400">≈ {fARS(arsAfterRow)}</div>
                         </td>
                       </tr>
                     );
@@ -6384,22 +6424,20 @@ export default function App() {
                 <tfoot>
                   {(() => {
                     const totalUSDBefore = simEmployees.reduce((s, e) => s + usdTotal(e.payments), 0);
-                    const totalUSDAfter = simEmployees.reduce((s, e) => {
-                      const pt = primaryType(e);
-                      const newVal = (pt ? (e.payments[pt] || 0) : 0) + raiseOf(e);
-                      return s + (pt ? usdTotal({ ...e.payments, [pt]: newVal }) : usdTotal(e.payments));
-                    }, 0);
+                    const totalUSDAfter = simEmployees.reduce((s, e) => s + usdTotal(applyRaise(e)), 0);
+                    const arsTotalBefore = simEmployees.reduce((s, e) => s + arsNomina(e.payments), 0);
+                    const arsTotalAfter  = simEmployees.reduce((s, e) => s + arsNomina(applyRaise(e)), 0);
                     return (
                       <tr className="bg-gray-50 border-t-2 border-gray-200 font-black text-gray-900">
                         <td className="px-4 py-2.5" colSpan={2}>Total ({simEmployees.length} personas)</td>
                         <td className="px-4 py-2.5 text-right">
                           <div>{fUSD(totalUSDBefore)}</div>
-                          <div className="text-xs font-normal text-gray-400">≈ {fARS(totalUSDBefore * dolar)}</div>
+                          <div className="text-xs font-normal text-gray-400">≈ {fARS(arsTotalBefore)}</div>
                         </td>
                         <td></td>
                         <td className="px-4 py-2.5 text-right text-emerald-700">
                           <div>{fUSD(totalUSDAfter)}</div>
-                          <div className="text-xs font-normal text-gray-400">≈ {fARS(totalUSDAfter * dolar)}</div>
+                          <div className="text-xs font-normal text-gray-400">≈ {fARS(arsTotalAfter)}</div>
                         </td>
                       </tr>
                     );
