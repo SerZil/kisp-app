@@ -6394,8 +6394,21 @@ export default function App() {
                         <td className="px-4 py-2">
                           <div className="flex items-center gap-2">
                             <div className={"w-6 h-6 " + avatarColor(e.id) + " rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"}>{initials(e.name)}</div>
-                            <span className="font-medium text-gray-800">{e.name}</span>
-                            {hasRaise && <span className="text-xs">🧪</span>}
+                            <div>
+                              <div className="flex items-center gap-1">
+                                <span className="font-medium text-gray-800">{e.name}</span>
+                                {hasRaise && <span className="text-xs">🧪</span>}
+                              </div>
+                              <div className="flex items-center gap-1.5 mt-0.5">
+                                <span className="text-xs text-gray-400">desde {fDate(e.activeFrom)}</span>
+                                {e.activeFrom && (() => {
+                                  const years = (new Date() - new Date(e.activeFrom)) / (1000*60*60*24*365.25);
+                                  const y = Math.floor(years);
+                                  const m = Math.floor((years - y) * 12);
+                                  return <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full font-medium">{y > 0 ? y + "a" : ""}{m > 0 ? " " + m + "m" : ""}</span>;
+                                })()}
+                              </div>
+                            </div>
                           </div>
                         </td>
                         <td className="px-4 py-2">
