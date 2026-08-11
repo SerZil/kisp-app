@@ -6322,6 +6322,8 @@ export default function App() {
             { label: "Buenos Aires (🇦🇷)", before: bsAsBefore,    after: bsAsAfter,    equivBefore: bsAsBefore * dolar,        equivAfter: bsAsAfter * dolar,        bg: "bg-sky-50",     border: "border-sky-200",     text: "text-sky-700" },
             { label: "Pesos ARS (dependencia)", before: arsUSDBefore, after: arsUSDAfter, equivBefore: arsBefore, equivAfter: arsAfter, bg: "bg-emerald-50", border: "border-emerald-200", text: "text-emerald-700" },
           ];
+          const totalDiffUSD = CARDS.reduce((s, c) => s + (c.after - c.before), 0);
+          const totalDiffARS = CARDS.reduce((s, c) => s + (c.equivAfter - c.equivBefore), 0);
 
           return (
           <div className="space-y-5">
@@ -6352,6 +6354,16 @@ export default function App() {
                 );
               })}
             </div>
+
+            {totalDiffUSD !== 0 && (
+              <div className="bg-gray-900 text-white rounded-xl px-5 py-3 flex items-center justify-between flex-wrap gap-2">
+                <span className="text-sm font-semibold">Total aumentado (todas las categorías)</span>
+                <div className="text-right">
+                  <div className="text-lg font-black">+{fmtUSD(totalDiffUSD)}</div>
+                  <div className="text-xs text-gray-400">≈ +{fARS(totalDiffARS)}</div>
+                </div>
+              </div>
+            )}
 
             <div className="flex items-center gap-2 flex-wrap">
               <input value={simSearch} onChange={e => setSimSearch(e.target.value)} placeholder="Buscar..."
