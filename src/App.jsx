@@ -4039,6 +4039,9 @@ export default function App() {
   const [rankSort, setRankSort]           = useState("desc");
   const [sortField, setSortField]         = useState(null);
   const [rankAreaFilter, setRankAreaFilter] = useState("All");
+  const [simRaises, setSimRaises]         = useState({});
+  const [simSearch, setSimSearch]         = useState("");
+  const [simAreaFilter, setSimAreaFilter] = useState("All");
   const [emailTemplates, setEmailTemplates] = useState({
     salesSupport: {
       to: "Antonella Rimoli <arimoli@kisptech.com>",
@@ -4759,7 +4762,7 @@ export default function App() {
     showToast("✉️ Drafts de onboarding enviados para " + emp.name);
   }
 
-  const NAV = [["dashboard", "Dashboard", "Dash"], ["nomina", "Nomina", "Nómina"], ["ranking", "Ranking", "Rank"], ["comparar", "Comparar", "Comp."], ["historial", "Historial", "Hist."], ["reportes", "Reportes", "Rep."], ["config", "Config", "Config"]];
+  const NAV = [["dashboard", "Dashboard", "Dash"], ["nomina", "Nomina", "Nómina"], ["ranking", "Ranking", "Rank"], ["comparar", "Comparar", "Comp."], ["simulador", "Simulador", "Sim."], ["historial", "Historial", "Hist."], ["reportes", "Reportes", "Rep."], ["config", "Config", "Config"]];
 
   // Set mobile viewport
   useEffect(() => {
@@ -6221,6 +6224,135 @@ export default function App() {
                 );
               })()}
             </div>
+          );
+        })()}
+
+        {/* ── SIMULADOR ── */}
+        {view === "simulador" && (() => {
+          const primaryType = (e) => {
+            if (e.payments.Crypto > 0) return "Crypto";
+            if (e.payments.Canada > 0) return "Canada";
+            if (e.payments.Mono   > 0) return "Mono";
+            if (e.payments.ARS    > 0) return "ARS";
+            return null;
+          };
+          const raiseOf = (e) => Number(simRaises[e.id]) || 0;
+
+          const simEmployees = activeWithSnap.filter(e => {
+            if (simAreaFilter !== "All" && e.area !== simAreaFilter) return false;
+            if (simSearch && !e.name.toLowerCase().includes(simSearch.toLowerCase())) return false;
+            return true;
+          });
+
+          const sumBy = (types, after) => activeWithSnap.reduce((s, e) => {
+            const pt = primaryType(e);
+            if (!types.includes(pt)) return s;
+            const base = e.payments[pt] || 0;
+            return s + (after ? base + raiseOf(e) : base);
+          }, 0);
+
+          const cryptoBefore = sumBy(["Crypto"], false), cryptoAfter = sumBy(["Crypto"], true);
+          const canadaBefore = sumBy(["Canada"], false), canadaAfter = sumBy(["Canada"], true);
+          const argBefore    = sumBy(["ARS", "Mono"], false), argAfter = sumBy(["ARS", "Mono"], true);
+          const empsWithRaise = activeWithSnap.filter(e => raiseOf(e) !== 0).length;
+
+          const CARDS = [
+            { label: "USDT (Crypto)", before: cryptoBefore, after: cryptoAfter, fmt: n => "U$ " + n.toLocaleString("es-AR"), color: "purple" },
+            { label: "Canada USD",    before: canadaBefore, after: canadaAfter, fmt: n => "U$ " + n.toLocaleString("es-AR"), color: "red" },
+            { label: "ARG (ARS + Mono)", before: argBefore, after: argAfter,   fmt: fARS, color: "blue" },
+          ];
+
+          return (
+          <div className="space-y-5">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div>
+                <h2 className="text-lg font-black text-gray-900">Simulador de Aumentos</h2>
+                <p className="text-xs text-gray-400">Cargá un monto de aumento por persona y mirá cómo quedan los totales — {MONTHS[month]} {year}</p>
+              </div>
+              <button onClick={() => setSimRaises({})}
+                className="text-xs font-bold text-gray-500 hover:text-gray-800 px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50">
+                Limpiar aumentos
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {CARDS.map(c => {
+                const changed = c.after !== c.before;
+                const cc = COLOR[c.color];
+                return (
+                  <div key={c.label} className={"rounded-xl px-4 py-3 border " + cc.bg + " " + cc.border}>
+                    <div className={"text-xs font-bold mb-1 " + cc.text}>{c.label}</div>
+                    <div className="flex items-baseline gap-2 flex-wrap">
+                      <span className="text-lg font-black text-gray-900">{c.fmt(c.after)}</span>
+                      {changed && <span className="text-xs text-gray-400 line-through">{c.fmt(c.before)}</span>}
+                    </div>
+                    {changed && <div className={"text-xs font-semibold mt-0.5 " + cc.text}>+{c.fmt(c.after - c.before)}</div>}
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap">
+              <input value={simSearch} onChange={e => setSimSearch(e.target.value)} placeholder="Buscar..."
+                className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-gray-400 w-48" />
+              <select value={simAreaFilter} onChange={e => setSimAreaFilter(e.target.value)}
+                className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none">
+                <option value="All">Todas las áreas</option>
+                {areas.map(a => <option key={a} value={a}>{a}</option>)}
+              </select>
+              <span className="text-xs text-gray-400">{empsWithRaise} persona{empsWithRaise === 1 ? "" : "s"} con aumento cargado</span>
+            </div>
+
+            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-200 text-gray-400 text-xs uppercase">
+                    <th className="px-4 py-2 text-left">Nombre</th>
+                    <th className="px-4 py-2 text-left">Moneda</th>
+                    <th className="px-4 py-2 text-right">Actual</th>
+                    <th className="px-4 py-2 text-right">Aumento</th>
+                    <th className="px-4 py-2 text-right">Nuevo</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {simEmployees.map(e => {
+                    const pt = primaryType(e);
+                    const meta = pt ? PAYMENT_META[pt] : null;
+                    const current = pt ? (e.payments[pt] || 0) : 0;
+                    const raiseVal = simRaises[e.id] ?? "";
+                    const newVal = current + raiseOf(e);
+                    return (
+                      <tr key={e.id} className="border-b border-gray-50 hover:bg-gray-50">
+                        <td className="px-4 py-2">
+                          <div className="flex items-center gap-2">
+                            <div className={"w-6 h-6 " + avatarColor(e.id) + " rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"}>{initials(e.name)}</div>
+                            <span className="font-medium text-gray-800">{e.name}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-2 text-gray-500">{meta ? meta.label : "—"}</td>
+                        <td className="px-4 py-2 text-right font-mono text-gray-600">{pt ? (meta.prefix + current.toLocaleString("es-AR")) : "—"}</td>
+                        <td className="px-4 py-2 text-right">
+                          {pt ? (
+                            <input type="number" value={raiseVal}
+                              onChange={ev => {
+                                const v = ev.target.value;
+                                setSimRaises(p => {
+                                  const n = { ...p };
+                                  if (v === "" || Number(v) === 0) delete n[e.id]; else n[e.id] = Number(v);
+                                  return n;
+                                });
+                              }}
+                              placeholder="0" className="w-24 text-right border border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-emerald-400" />
+                          ) : "—"}
+                        </td>
+                        <td className="px-4 py-2 text-right font-bold text-gray-900">{pt ? (meta.prefix + newVal.toLocaleString("es-AR")) : "—"}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
           );
         })()}
 
