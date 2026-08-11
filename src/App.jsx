@@ -6237,6 +6237,8 @@ export default function App() {
             return null;
           };
           const raiseOf = (e) => Number(simRaises[e.id]) || 0;
+          // Total en USD: los rubros USD se suman directo, los pesos (ARS/Mono) se convierten con el dolar Blue
+          const usdTotal = (pay) => toUSD(pay) + (dolar > 0 ? ((pay.ARS || 0) + (pay.Mono || 0)) / dolar : 0);
 
           const simEmployees = activeWithSnap.filter(e => {
             if (simAreaFilter !== "All" && e.area !== simAreaFilter) return false;
@@ -6265,11 +6267,13 @@ export default function App() {
           const arsAfter   = arsBefore + raiseARS;
 
           const fmtUSD = n => "U$ " + Math.round(n).toLocaleString("es-AR");
+          const arsUSDBefore = dolar > 0 ? arsBefore / dolar : 0;
+          const arsUSDAfter  = dolar > 0 ? arsAfter / dolar : 0;
           const CARDS = [
-            { label: "Crypto (₿)",        before: cryptoBefore, after: cryptoAfter, fmt: fmtUSD, bg: "bg-purple-50",  border: "border-purple-200",  text: "text-purple-700" },
-            { label: "Canada (🍁)",       before: canadaBefore, after: canadaAfter, fmt: fmtUSD, bg: "bg-red-50",     border: "border-red-200",     text: "text-red-700" },
-            { label: "Buenos Aires (🇦🇷)", before: bsAsBefore,   after: bsAsAfter,   fmt: fmtUSD, bg: "bg-sky-50",     border: "border-sky-200",     text: "text-sky-700" },
-            { label: "Pesos ARS (dependencia)", before: arsBefore, after: arsAfter, fmt: fARS,   bg: "bg-emerald-50", border: "border-emerald-200", text: "text-emerald-700" },
+            { label: "Crypto (₿)",        before: cryptoBefore,  after: cryptoAfter,  bg: "bg-purple-50",  border: "border-purple-200",  text: "text-purple-700" },
+            { label: "Canada (🍁)",       before: canadaBefore,  after: canadaAfter,  bg: "bg-red-50",     border: "border-red-200",     text: "text-red-700" },
+            { label: "Buenos Aires (🇦🇷)", before: bsAsBefore,    after: bsAsAfter,    bg: "bg-sky-50",     border: "border-sky-200",     text: "text-sky-700" },
+            { label: "Pesos ARS (dependencia)", before: arsUSDBefore, after: arsUSDAfter, bg: "bg-emerald-50", border: "border-emerald-200", text: "text-emerald-700" },
           ];
 
           return (
@@ -6292,10 +6296,11 @@ export default function App() {
                   <div key={c.label} className={"rounded-xl px-4 py-3 border " + c.bg + " " + c.border}>
                     <div className={"text-xs font-bold mb-1 " + c.text}>{c.label}</div>
                     <div className="flex items-baseline gap-2 flex-wrap">
-                      <span className="text-lg font-black text-gray-900">{c.fmt(c.after)}</span>
-                      {changed && <span className="text-xs text-gray-400 line-through">{c.fmt(c.before)}</span>}
+                      <span className="text-lg font-black text-gray-900">{fmtUSD(c.after)}</span>
+                      {changed && <span className="text-xs text-gray-400 line-through">{fmtUSD(c.before)}</span>}
                     </div>
-                    {changed && <div className={"text-xs font-semibold mt-0.5 " + c.text}>+{c.fmt(c.after - c.before)}</div>}
+                    <div className="text-xs text-gray-400 mt-0.5">≈ {fARS(c.after * dolar)}</div>
+                    {changed && <div className={"text-xs font-semibold mt-0.5 " + c.text}>+{fmtUSD(c.after - c.before)}</div>}
                   </div>
                 );
               })}
@@ -6318,9 +6323,9 @@ export default function App() {
                   <tr className="bg-gray-50 border-b border-gray-200 text-gray-400 text-xs uppercase">
                     <th className="px-4 py-2 text-left">Nombre</th>
                     <th className="px-4 py-2 text-left">Composición salarial</th>
-                    <th className="px-4 py-2 text-right">Total actual</th>
+                    <th className="px-4 py-2 text-right">Total actual (USD)</th>
                     <th className="px-4 py-2 text-right">Aumento</th>
-                    <th className="px-4 py-2 text-right">Total con aumento</th>
+                    <th className="px-4 py-2 text-right">Total con aumento (USD)</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -6330,8 +6335,8 @@ export default function App() {
                     const current = pt ? (e.payments[pt] || 0) : 0;
                     const raiseVal = simRaises[e.id] ?? "";
                     const newVal = current + raiseOf(e);
-                    const totalBefore = arsNomina(e.payments);
-                    const totalAfter = pt ? arsNomina({ ...e.payments, [pt]: newVal }) : totalBefore;
+                    const totalBefore = usdTotal(e.payments);
+                    const totalAfter = pt ? usdTotal({ ...e.payments, [pt]: newVal }) : totalBefore;
                     return (
                       <tr key={e.id} className="border-b border-gray-50 hover:bg-gray-50">
                         <td className="px-4 py-2">
@@ -6347,7 +6352,10 @@ export default function App() {
                             </div>
                           ))}
                         </td>
-                        <td className="px-4 py-2 text-right font-mono text-gray-600">{fARS(totalBefore)}</td>
+                        <td className="px-4 py-2 text-right">
+                          <div className="font-mono text-gray-600">{fUSD(totalBefore)}</div>
+                          <div className="text-xs text-gray-400">≈ {fARS(totalBefore * dolar)}</div>
+                        </td>
                         <td className="px-4 py-2 text-right">
                           {pt ? (
                             <div className="flex items-center justify-end gap-1">
@@ -6365,24 +6373,37 @@ export default function App() {
                             </div>
                           ) : "—"}
                         </td>
-                        <td className={"px-4 py-2 text-right font-bold " + (totalAfter !== totalBefore ? "text-emerald-700" : "text-gray-900")}>{fARS(totalAfter)}</td>
+                        <td className={"px-4 py-2 text-right font-bold " + (totalAfter !== totalBefore ? "text-emerald-700" : "text-gray-900")}>
+                          <div>{fUSD(totalAfter)}</div>
+                          <div className="text-xs font-normal text-gray-400">≈ {fARS(totalAfter * dolar)}</div>
+                        </td>
                       </tr>
                     );
                   })}
                 </tbody>
                 <tfoot>
-                  <tr className="bg-gray-50 border-t-2 border-gray-200 font-black text-gray-900">
-                    <td className="px-4 py-2.5" colSpan={2}>Total ({simEmployees.length} personas)</td>
-                    <td className="px-4 py-2.5 text-right">{fARS(simEmployees.reduce((s, e) => s + arsNomina(e.payments), 0))}</td>
-                    <td></td>
-                    <td className="px-4 py-2.5 text-right text-emerald-700">
-                      {fARS(simEmployees.reduce((s, e) => {
-                        const pt = primaryType(e);
-                        const newVal = (pt ? (e.payments[pt] || 0) : 0) + raiseOf(e);
-                        return s + (pt ? arsNomina({ ...e.payments, [pt]: newVal }) : arsNomina(e.payments));
-                      }, 0))}
-                    </td>
-                  </tr>
+                  {(() => {
+                    const totalUSDBefore = simEmployees.reduce((s, e) => s + usdTotal(e.payments), 0);
+                    const totalUSDAfter = simEmployees.reduce((s, e) => {
+                      const pt = primaryType(e);
+                      const newVal = (pt ? (e.payments[pt] || 0) : 0) + raiseOf(e);
+                      return s + (pt ? usdTotal({ ...e.payments, [pt]: newVal }) : usdTotal(e.payments));
+                    }, 0);
+                    return (
+                      <tr className="bg-gray-50 border-t-2 border-gray-200 font-black text-gray-900">
+                        <td className="px-4 py-2.5" colSpan={2}>Total ({simEmployees.length} personas)</td>
+                        <td className="px-4 py-2.5 text-right">
+                          <div>{fUSD(totalUSDBefore)}</div>
+                          <div className="text-xs font-normal text-gray-400">≈ {fARS(totalUSDBefore * dolar)}</div>
+                        </td>
+                        <td></td>
+                        <td className="px-4 py-2.5 text-right text-emerald-700">
+                          <div>{fUSD(totalUSDAfter)}</div>
+                          <div className="text-xs font-normal text-gray-400">≈ {fARS(totalUSDAfter * dolar)}</div>
+                        </td>
+                      </tr>
+                    );
+                  })()}
                 </tfoot>
               </table>
             </div>
