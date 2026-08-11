@@ -4039,7 +4039,10 @@ export default function App() {
   const [rankSort, setRankSort]           = useState("desc");
   const [sortField, setSortField]         = useState(null);
   const [rankAreaFilter, setRankAreaFilter] = useState("All");
-  const [simRaises, setSimRaises]         = useState({});
+  const [simRaises, setSimRaises]         = useState(() => {
+    try { const s = localStorage.getItem("kisp-sim-raises"); return s ? JSON.parse(s) : {}; }
+    catch { return {}; }
+  });
   const [simSearch, setSimSearch]         = useState("");
   const [simAreaFilter, setSimAreaFilter] = useState("All");
   const [emailTemplates, setEmailTemplates] = useState({
@@ -4154,6 +4157,7 @@ export default function App() {
   const [useNominaCrypto, setUseNominaCrypto] = useState(() => localStorage.getItem("kisp-use-crypto") === null ? true : localStorage.getItem("kisp-use-crypto") === "true");
   useEffect(() => { localStorage.setItem("kisp-use-crypto", useNominaCrypto); }, [useNominaCrypto]);
   useEffect(() => { localStorage.setItem("kisp-data-by-area", JSON.stringify(dataByArea)); }, [dataByArea]);
+  useEffect(() => { localStorage.setItem("kisp-sim-raises", JSON.stringify(simRaises)); }, [simRaises]);
   const [modal, setModal]         = useState(null);
   const [profileEmp, setProfileEmp] = useState(null);
   const [printData, setPrintData] = useState(null);
