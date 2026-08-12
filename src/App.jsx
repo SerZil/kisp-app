@@ -6502,7 +6502,10 @@ export default function App() {
                             <div className={"w-6 h-6 " + avatarColor(e.id) + " rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"}>{initials(e.name)}</div>
                             <div>
                               <div className="flex items-center gap-1">
-                                <span className="font-medium text-gray-800">{e.name}</span>
+                                <button onClick={() => setProfileEmp(employees.find(x => x.id === e.id))}
+                                  className="font-medium text-gray-800 hover:text-blue-600 hover:underline text-left">
+                                  {e.name}
+                                </button>
                                 {hasRaise && <span className="text-xs">🧪</span>}
                               </div>
                               <div className="flex items-center gap-1.5 mt-0.5">
