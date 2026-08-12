@@ -4045,6 +4045,8 @@ export default function App() {
   });
   const [simSearch, setSimSearch]         = useState("");
   const [simAreaFilter, setSimAreaFilter] = useState("All");
+  const [empConflict, setEmpConflict]     = useState(null);
+  const [raiseConflict, setRaiseConflict] = useState(null);
   const [emailTemplates, setEmailTemplates] = useState({
     salesSupport: {
       to: "Antonella Rimoli <arimoli@kisptech.com>",
@@ -4338,10 +4340,13 @@ export default function App() {
             // (posible error/bug del lado del servidor) pero local tiene datos reales,
             // nunca confiar ciegamente en el servidor - preferir lo local.
             const sheetsEmployeesLookSuspicious = data.employees.length === 0 && localEmployees && localEmployees.length > 0;
-            // Usar la fuente más reciente (employees/dolarMap tienen su propio timestamp)
+            // Usar la fuente más reciente (employees/dolarMap tienen su propio timestamp).
+            // Si el servidor esta vacio y local tiene datos, NUNCA se pisa en silencio:
+            // se mantiene lo local y se avisa con un cartel para que el usuario decida.
             if (sheetsEmployeesLookSuspicious || (localEmployees && localSavedAt > sheetsSavedAt)) {
               setEmployees(migrateEmployees(localEmployees));
               if (localDolar) setDolarMap(localDolar);
+              if (sheetsEmployeesLookSuspicious) setEmpConflict({ count: localEmployees.length });
             } else {
               setEmployees(migrateEmployees(data.employees));
               if (data.dolarMap) setDolarMap(data.dolarMap);
@@ -4349,13 +4354,14 @@ export default function App() {
             // simRaises usa un timestamp PROPIO, independiente del de employees/dolarMap,
             // para no perder simulaciones locales por un cambio de dolar ajeno. Ademas,
             // la misma red de seguridad: servidor sospechosamente vacio nunca pisa local
-            // con contenido real.
+            // en silencio - se avisa con un cartel.
             const sheetsSimRaisesSavedAt = data.simRaisesSavedAt || 0;
             const sheetsSimRaisesCount = Object.keys(data.simRaises || {}).length;
             const localSimRaisesCount = Object.keys(localSimRaises || {}).length;
             const sheetsSimRaisesLookSuspicious = sheetsSimRaisesCount === 0 && localSimRaisesCount > 0;
             if (sheetsSimRaisesLookSuspicious || (localSimRaises && localSimRaisesSavedAt >= sheetsSimRaisesSavedAt)) {
               setSimRaises(localSimRaises || {});
+              if (sheetsSimRaisesLookSuspicious) setRaiseConflict({ count: localSimRaisesCount });
             } else {
               setSimRaises(data.simRaises || {});
             }
@@ -4873,6 +4879,46 @@ export default function App() {
           ))}
         </div>
       </div>
+
+      {/* CONFLICTO SERVIDOR VACIO vs LOCAL — nunca se resuelve solo, se pregunta */}
+      {(empConflict || raiseConflict) && (
+        <div className="mx-3 mt-2 rounded-xl border border-red-300 bg-red-50 px-4 py-2.5 space-y-2">
+          {empConflict && (
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <span className="text-sm text-red-800 font-medium">
+                ⚠️ El servidor no tiene empleados cargados, pero tu navegador tiene {empConflict.count}. ¿Qué hacemos?
+              </span>
+              <div className="flex gap-1.5 shrink-0">
+                <button onClick={() => setEmpConflict(null)}
+                  className="text-xs px-3 py-1.5 rounded-full font-bold text-white bg-emerald-600 hover:bg-emerald-700">
+                  Mantener y subir al servidor
+                </button>
+                <button onClick={() => { setEmployees([]); setEmpConflict(null); }}
+                  className="text-xs px-3 py-1.5 rounded-full font-bold text-white bg-red-600 hover:bg-red-700">
+                  Vaciar (ya lo borré yo)
+                </button>
+              </div>
+            </div>
+          )}
+          {raiseConflict && (
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <span className="text-sm text-red-800 font-medium">
+                ⚠️ El servidor no tiene aumentos del Simulador cargados, pero tu navegador tiene {raiseConflict.count}. ¿Qué hacemos?
+              </span>
+              <div className="flex gap-1.5 shrink-0">
+                <button onClick={() => setRaiseConflict(null)}
+                  className="text-xs px-3 py-1.5 rounded-full font-bold text-white bg-emerald-600 hover:bg-emerald-700">
+                  Mantener y subir al servidor
+                </button>
+                <button onClick={() => { setSimRaises({}); setRaiseConflict(null); }}
+                  className="text-xs px-3 py-1.5 rounded-full font-bold text-white bg-red-600 hover:bg-red-700">
+                  Vaciar (ya los borré yo)
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* PENDING DRAFTS BANNER */}
       {pendingDrafts.length > 0 && (
