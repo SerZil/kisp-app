@@ -4157,7 +4157,6 @@ export default function App() {
   const [useNominaCrypto, setUseNominaCrypto] = useState(() => localStorage.getItem("kisp-use-crypto") === null ? true : localStorage.getItem("kisp-use-crypto") === "true");
   useEffect(() => { localStorage.setItem("kisp-use-crypto", useNominaCrypto); }, [useNominaCrypto]);
   useEffect(() => { localStorage.setItem("kisp-data-by-area", JSON.stringify(dataByArea)); }, [dataByArea]);
-  useEffect(() => { localStorage.setItem("kisp-sim-raises", JSON.stringify(simRaises)); }, [simRaises]);
   const [modal, setModal]         = useState(null);
   const [profileEmp, setProfileEmp] = useState(null);
   const [printData, setPrintData] = useState(null);
@@ -4317,13 +4316,16 @@ export default function App() {
 
     async function loadFromStorage() {
       // Leer localStorage primero
-      let localEmployees = null, localDolar = null, localSavedAt = 0;
+      let localEmployees = null, localDolar = null, localSimRaises = null, localSavedAt = 0, localSimRaisesSavedAt = 0;
       try {
         const raw = localStorage.getItem("kisp-employees");
         if (raw) localEmployees = JSON.parse(raw);
         const rawD = localStorage.getItem("kisp-dolar");
         if (rawD) localDolar = JSON.parse(rawD);
+        const rawS = localStorage.getItem("kisp-sim-raises");
+        if (rawS) localSimRaises = JSON.parse(rawS);
         localSavedAt = parseInt(localStorage.getItem("kisp-savedAt") || "0");
+        localSimRaisesSavedAt = parseInt(localStorage.getItem("kisp-sim-raises-savedAt") || "0");
       } catch (e) { /* ignorar */ }
 
       try {
@@ -4332,13 +4334,21 @@ export default function App() {
           const data = await res.json();
           if (data.employees) {
             const sheetsSavedAt = data.savedAt || 0;
-            // Usar la fuente más reciente
+            // Usar la fuente más reciente (employees/dolarMap tienen su propio timestamp)
             if (localEmployees && localSavedAt > sheetsSavedAt) {
               setEmployees(migrateEmployees(localEmployees));
               if (localDolar) setDolarMap(localDolar);
             } else {
               setEmployees(migrateEmployees(data.employees));
               if (data.dolarMap) setDolarMap(data.dolarMap);
+            }
+            // simRaises usa un timestamp PROPIO, independiente del de employees/dolarMap,
+            // para no perder simulaciones locales por un cambio de dolar ajeno.
+            const sheetsSimRaisesSavedAt = data.simRaisesSavedAt || 0;
+            if (localSimRaises && localSimRaisesSavedAt >= sheetsSimRaisesSavedAt) {
+              setSimRaises(localSimRaises);
+            } else {
+              setSimRaises(data.simRaises || {});
             }
             setStorageReady(true);
             fetchDolarBlue();
@@ -4353,6 +4363,7 @@ export default function App() {
       if (localEmployees) {
         setEmployees(migrateEmployees(localEmployees));
         if (localDolar) setDolarMap(localDolar);
+        if (localSimRaises) setSimRaises(localSimRaises);
         setStorageReady(true);
         fetchDolarBlue();
         fetchIPC();
@@ -4369,26 +4380,54 @@ export default function App() {
 
   useEffect(() => {
     if (!storageReady) return;
-    // Guardar en localStorage inmediatamente con timestamp
+    // Guardar en localStorage inmediatamente, con su propio timestamp
     const savedAt = Date.now();
     try {
       localStorage.setItem("kisp-employees", JSON.stringify(employees));
       localStorage.setItem("kisp-dolar", JSON.stringify(dolarMap));
       localStorage.setItem("kisp-savedAt", String(savedAt));
     } catch (e) { console.error("Storage save error:", e); }
-    // Sync a Google Sheets con debounce de 3 segundos
+    // Sync a Google Sheets con debounce de 3 segundos.
+    // El body siempre lleva TODO (employees+dolarMap+simRaises) porque el backend
+    // sobreescribe el archivo entero: si mandaramos solo lo que cambio, pisariamos
+    // el resto sin querer.
     const timer = setTimeout(() => {
+      const simRaisesSavedAt = parseInt(localStorage.getItem("kisp-sim-raises-savedAt") || "0");
       try {
         fetch(SHEETS_URL, {
           method: "POST",
           mode: "no-cors",
           headers: { "Content-Type": "text/plain" },
-          body: JSON.stringify({ employees, dolarMap, savedAt }),
+          body: JSON.stringify({ employees, dolarMap, savedAt, simRaises, simRaisesSavedAt }),
         });
       } catch (e) { /* sin conexión, ignorar */ }
     }, 3000);
     return () => clearTimeout(timer);
   }, [employees, dolarMap, storageReady]);
+
+  // Los aumentos del simulador tienen su PROPIO timestamp, independiente del de
+  // employees/dolarMap — asi un refresco de dolar (que es frecuente y ajeno al
+  // simulador) nunca puede hacer que se pierda una simulacion local mas nueva.
+  useEffect(() => {
+    if (!storageReady) return;
+    const simRaisesSavedAt = Date.now();
+    try {
+      localStorage.setItem("kisp-sim-raises", JSON.stringify(simRaises));
+      localStorage.setItem("kisp-sim-raises-savedAt", String(simRaisesSavedAt));
+    } catch (e) { console.error("Storage save error:", e); }
+    const timer = setTimeout(() => {
+      const savedAt = parseInt(localStorage.getItem("kisp-savedAt") || "0");
+      try {
+        fetch(SHEETS_URL, {
+          method: "POST",
+          mode: "no-cors",
+          headers: { "Content-Type": "text/plain" },
+          body: JSON.stringify({ employees, dolarMap, savedAt, simRaises, simRaisesSavedAt }),
+        });
+      } catch (e) { /* sin conexión, ignorar */ }
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, [simRaises, storageReady]);
 
   function showToast(msg, type = "success") {
     setToast({ msg, type });
