@@ -5770,6 +5770,15 @@ export default function App() {
                               {rankGroup !== "rank" && <span className="italic">{emp.rank}</span>}
                               {rankGroup !== "area" && emp.area && <span> · {emp.area}</span>}
                             </div>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <span className="text-xs text-gray-400">desde {fDate(emp.activeFrom)}</span>
+                              {emp.activeFrom && (() => {
+                                const years = (new Date() - new Date(emp.activeFrom)) / (1000*60*60*24*365.25);
+                                const y = Math.floor(years);
+                                const m = Math.floor((years - y) * 12);
+                                return <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full font-medium">{y > 0 ? y + "a" : ""}{m > 0 ? " " + m + "m" : ""}</span>;
+                              })()}
+                            </div>
                           </div>
                           <div className="flex items-center gap-3 shrink-0">
                             <div className="text-right">
