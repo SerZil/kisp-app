@@ -4334,8 +4334,12 @@ export default function App() {
           const data = await res.json();
           if (data.employees) {
             const sheetsSavedAt = data.savedAt || 0;
+            // Red de seguridad: si el servidor devuelve una lista sospechosamente vacia
+            // (posible error/bug del lado del servidor) pero local tiene datos reales,
+            // nunca confiar ciegamente en el servidor - preferir lo local.
+            const sheetsEmployeesLookSuspicious = data.employees.length === 0 && localEmployees && localEmployees.length > 0;
             // Usar la fuente más reciente (employees/dolarMap tienen su propio timestamp)
-            if (localEmployees && localSavedAt > sheetsSavedAt) {
+            if (sheetsEmployeesLookSuspicious || (localEmployees && localSavedAt > sheetsSavedAt)) {
               setEmployees(migrateEmployees(localEmployees));
               if (localDolar) setDolarMap(localDolar);
             } else {
@@ -4343,10 +4347,15 @@ export default function App() {
               if (data.dolarMap) setDolarMap(data.dolarMap);
             }
             // simRaises usa un timestamp PROPIO, independiente del de employees/dolarMap,
-            // para no perder simulaciones locales por un cambio de dolar ajeno.
+            // para no perder simulaciones locales por un cambio de dolar ajeno. Ademas,
+            // la misma red de seguridad: servidor sospechosamente vacio nunca pisa local
+            // con contenido real.
             const sheetsSimRaisesSavedAt = data.simRaisesSavedAt || 0;
-            if (localSimRaises && localSimRaisesSavedAt >= sheetsSimRaisesSavedAt) {
-              setSimRaises(localSimRaises);
+            const sheetsSimRaisesCount = Object.keys(data.simRaises || {}).length;
+            const localSimRaisesCount = Object.keys(localSimRaises || {}).length;
+            const sheetsSimRaisesLookSuspicious = sheetsSimRaisesCount === 0 && localSimRaisesCount > 0;
+            if (sheetsSimRaisesLookSuspicious || (localSimRaises && localSimRaisesSavedAt >= sheetsSimRaisesSavedAt)) {
+              setSimRaises(localSimRaises || {});
             } else {
               setSimRaises(data.simRaises || {});
             }
