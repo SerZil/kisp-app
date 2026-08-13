@@ -4045,6 +4045,7 @@ export default function App() {
   });
   const [simSearch, setSimSearch]         = useState("");
   const [simAreaFilter, setSimAreaFilter] = useState("All");
+  const [simTeamFilter, setSimTeamFilter] = useState("All");
   const [simSortField, setSimSortField]   = useState(null);
   const [empConflict, setEmpConflict]     = useState(null);
   const [raiseConflict, setRaiseConflict] = useState(null);
@@ -6383,8 +6384,10 @@ export default function App() {
             return null;
           };
 
+          const simAvailTeams = Array.from(new Set(activeWithSnap.filter(e => simAreaFilter === "All" || e.area === simAreaFilter).map(e => e.team).filter(Boolean))).sort();
           const simEmployees = activeWithSnap.filter(e => {
             if (simAreaFilter !== "All" && e.area !== simAreaFilter) return false;
+            if (simTeamFilter !== "All" && e.team !== simTeamFilter) return false;
             if (simSearch && !e.name.toLowerCase().includes(simSearch.toLowerCase())) return false;
             return true;
           }).sort((a, b) => {
@@ -6476,10 +6479,15 @@ export default function App() {
             <div className="flex items-center gap-2 flex-wrap">
               <input value={simSearch} onChange={e => setSimSearch(e.target.value)} placeholder="Buscar..."
                 className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-gray-400 w-48" />
-              <select value={simAreaFilter} onChange={e => setSimAreaFilter(e.target.value)}
+              <select value={simAreaFilter} onChange={e => { setSimAreaFilter(e.target.value); setSimTeamFilter("All"); }}
                 className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none">
                 <option value="All">Todas las áreas</option>
                 {areas.map(a => <option key={a} value={a}>{a}</option>)}
+              </select>
+              <select value={simTeamFilter} onChange={e => setSimTeamFilter(e.target.value)}
+                className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none">
+                <option value="All">Todos los teams</option>
+                {simAvailTeams.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
               {empsWithRaise > 0 && (
                 <span className="flex items-center gap-1.5 text-xs font-bold text-amber-700 bg-amber-100 border border-amber-300 rounded-full px-3 py-1">
