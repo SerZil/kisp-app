@@ -4045,6 +4045,7 @@ export default function App() {
   });
   const [simSearch, setSimSearch]         = useState("");
   const [simAreaFilter, setSimAreaFilter] = useState("All");
+  const [simSortField, setSimSortField]   = useState(null);
   const [empConflict, setEmpConflict]     = useState(null);
   const [raiseConflict, setRaiseConflict] = useState(null);
   const [emailTemplates, setEmailTemplates] = useState({
@@ -6386,6 +6387,10 @@ export default function App() {
             if (simAreaFilter !== "All" && e.area !== simAreaFilter) return false;
             if (simSearch && !e.name.toLowerCase().includes(simSearch.toLowerCase())) return false;
             return true;
+          }).sort((a, b) => {
+            if (simSortField === "total_desc") return usdTotal(applyRaise(b)) - usdTotal(applyRaise(a));
+            if (simSortField === "total_asc") return usdTotal(applyRaise(a)) - usdTotal(applyRaise(b));
+            return 0;
           });
 
           let raiseCrypto = 0, raiseCanada = 0, raiseBsAsUSD = 0, raiseARS = 0;
@@ -6491,7 +6496,11 @@ export default function App() {
                     <th className="px-4 py-2 text-left">Composición salarial</th>
                     <th className="px-4 py-2 text-right">Total actual (USD)</th>
                     <th className="px-4 py-2 text-right">Aumento</th>
-                    <th className="px-4 py-2 text-right">Total con aumento (USD)</th>
+                    <th className="px-4 py-2 text-right">
+                      <button onClick={() => setSimSortField(s => s === "total_desc" ? "total_asc" : "total_desc")} className={"font-medium hover:text-gray-700 " + (simSortField?.startsWith("total") ? "text-gray-700" : "text-gray-400")}>
+                        Total con aumento (USD) {simSortField === "total_desc" ? "↓" : simSortField === "total_asc" ? "↑" : ""}
+                      </button>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
