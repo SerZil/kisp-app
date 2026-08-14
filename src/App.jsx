@@ -4149,6 +4149,7 @@ export default function App() {
     }
   });
   const [cmpA, setCmpA] = useState(null);
+  const [syncState, setSyncState] = useState("idle"); // idle | pending | saving | saved | error
   const [draftNotification, setDraftNotification] = useState(null);
   const [pendingDrafts, setPendingDrafts] = useState([]);
   const [cmpB, setCmpB] = useState(null);
@@ -4396,6 +4397,65 @@ export default function App() {
   // ── STORAGE: save on change ──
   const SHEETS_URL = "https://script.google.com/macros/s/AKfycbwPX2og-NirPVsPNMLasWg3RPkyvGfJwUGcbOd9uPRK3QrrGuy7GgG90puNgDflCB4v/exec";
 
+  // Mecanismo de guardado a Sheets a prueba de cierres de pestaña / cortes de conexion:
+  // - lastPayloadRef siempre tiene el ultimo estado a enviar; dirtyRef indica si ese
+  //   estado ya se confirmo enviado o sigue pendiente.
+  // - El debounce es corto (1.2s) en vez de 3s, para minimizar la ventana de riesgo.
+  // - beforeunload/pagehide/visibilitychange fuerzan un envio inmediato via sendBeacon
+  //   (que el navegador entrega igual aunque la pestaña se este cerrando).
+  // - Si falla (sin conexion), reintenta solo hasta confirmar el envio o volver a estar online.
+  const lastPayloadRef = useRef(null);
+  const dirtyRef = useRef(false);
+  const syncTimerRef = useRef(null);
+
+  function doSync(useBeacon = false) {
+    const payload = lastPayloadRef.current;
+    if (!payload) return;
+    if (syncTimerRef.current) { clearTimeout(syncTimerRef.current); syncTimerRef.current = null; }
+    const body = JSON.stringify(payload);
+    if (useBeacon && navigator.sendBeacon) {
+      const ok = navigator.sendBeacon(SHEETS_URL, new Blob([body], { type: "text/plain" }));
+      if (ok) { dirtyRef.current = false; setSyncState("saved"); }
+      else { setSyncState("error"); scheduleRetry(); }
+      return;
+    }
+    setSyncState("saving");
+    fetch(SHEETS_URL, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain" }, body })
+      .then(() => { dirtyRef.current = false; setSyncState("saved"); })
+      .catch(() => { setSyncState("error"); scheduleRetry(); });
+  }
+
+  function scheduleRetry() {
+    if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
+    syncTimerRef.current = setTimeout(() => { if (dirtyRef.current) doSync(false); }, 5000);
+  }
+
+  function scheduleSync(payload) {
+    lastPayloadRef.current = payload;
+    dirtyRef.current = true;
+    setSyncState("pending");
+    if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
+    syncTimerRef.current = setTimeout(() => doSync(false), 1200);
+  }
+
+  // Red de seguridad: si la pestaña se cierra/oculta o se pierde conexion con un guardado
+  // pendiente, forzar el envio en vez de confiar en que el debounce llegue a disparar.
+  useEffect(() => {
+    const flushPending = () => { if (dirtyRef.current) doSync(true); };
+    const onVisibility = () => { if (document.visibilityState === "hidden") flushPending(); };
+    const onOnline = () => { if (dirtyRef.current) doSync(false); };
+    window.addEventListener("beforeunload", flushPending);
+    window.addEventListener("pagehide", flushPending);
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("online", onOnline);
+    return () => {
+      window.removeEventListener("beforeunload", flushPending);
+      window.removeEventListener("pagehide", flushPending);
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("online", onOnline);
+    };
+  }, []);
+
   useEffect(() => {
     if (!storageReady) return;
     // Guardar en localStorage inmediatamente, con su propio timestamp
@@ -4405,22 +4465,11 @@ export default function App() {
       localStorage.setItem("kisp-dolar", JSON.stringify(dolarMap));
       localStorage.setItem("kisp-savedAt", String(savedAt));
     } catch (e) { console.error("Storage save error:", e); }
-    // Sync a Google Sheets con debounce de 3 segundos.
     // El body siempre lleva TODO (employees+dolarMap+simRaises) porque el backend
     // sobreescribe el archivo entero: si mandaramos solo lo que cambio, pisariamos
     // el resto sin querer.
-    const timer = setTimeout(() => {
-      const simRaisesSavedAt = parseInt(localStorage.getItem("kisp-sim-raises-savedAt") || "0");
-      try {
-        fetch(SHEETS_URL, {
-          method: "POST",
-          mode: "no-cors",
-          headers: { "Content-Type": "text/plain" },
-          body: JSON.stringify({ employees, dolarMap, savedAt, simRaises, simRaisesSavedAt }),
-        });
-      } catch (e) { /* sin conexión, ignorar */ }
-    }, 3000);
-    return () => clearTimeout(timer);
+    const simRaisesSavedAt = parseInt(localStorage.getItem("kisp-sim-raises-savedAt") || "0");
+    scheduleSync({ employees, dolarMap, savedAt, simRaises, simRaisesSavedAt });
   }, [employees, dolarMap, storageReady]);
 
   // Los aumentos del simulador tienen su PROPIO timestamp, independiente del de
@@ -4433,18 +4482,8 @@ export default function App() {
       localStorage.setItem("kisp-sim-raises", JSON.stringify(simRaises));
       localStorage.setItem("kisp-sim-raises-savedAt", String(simRaisesSavedAt));
     } catch (e) { console.error("Storage save error:", e); }
-    const timer = setTimeout(() => {
-      const savedAt = parseInt(localStorage.getItem("kisp-savedAt") || "0");
-      try {
-        fetch(SHEETS_URL, {
-          method: "POST",
-          mode: "no-cors",
-          headers: { "Content-Type": "text/plain" },
-          body: JSON.stringify({ employees, dolarMap, savedAt, simRaises, simRaisesSavedAt }),
-        });
-      } catch (e) { /* sin conexión, ignorar */ }
-    }, 3000);
-    return () => clearTimeout(timer);
+    const savedAt = parseInt(localStorage.getItem("kisp-savedAt") || "0");
+    scheduleSync({ employees, dolarMap, savedAt, simRaises, simRaisesSavedAt });
   }, [simRaises, storageReady]);
 
   function showToast(msg, type = "success") {
@@ -6719,6 +6758,15 @@ export default function App() {
           onSave={saveEmployee}
           onClose={() => setModal(null)}
         />
+      )}
+
+      {/* SYNC STATUS */}
+      {(syncState === "pending" || syncState === "saving" || syncState === "error") && (
+        <div className={"fixed bottom-4 left-4 z-50 rounded-full shadow-lg px-3 py-1.5 flex items-center gap-2 text-xs font-bold " + (syncState === "error" ? "bg-red-600 text-white" : "bg-gray-900 text-white")}>
+          {syncState === "error"
+            ? <>⚠️ Sin conexión — reintentando guardar…</>
+            : <><span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" /> Guardando cambios…</>}
+        </div>
       )}
 
       {/* DRAFT NOTIFICATION */}
