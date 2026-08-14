@@ -6533,6 +6533,10 @@ export default function App() {
                                   {e.name}
                                 </button>
                                 {hasRaise && <span className="text-xs">🧪</span>}
+                                <button onClick={() => { const empFull = employees.find(x => x.id === e.id) || e; setModal({ mode: "edit", data: { ...empFull, payments: { ...e.payments }, rank: e.rank } }); }}
+                                  className="p-1 rounded hover:bg-blue-50 text-blue-400" title="Editar">
+                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                                </button>
                               </div>
                               <div className="flex items-center gap-1.5 mt-0.5">
                                 <span className="text-xs text-gray-400">desde {fDate(e.activeFrom)}</span>
