@@ -4047,6 +4047,7 @@ export default function App() {
   const [simAreaFilter, setSimAreaFilter] = useState("All");
   const [simTeamFilter, setSimTeamFilter] = useState("All");
   const [simSortField, setSimSortField]   = useState(null);
+  const [simOriginFilter, setSimOriginFilter] = useState(null);
   const [empConflict, setEmpConflict]     = useState(null);
   const [raiseConflict, setRaiseConflict] = useState(null);
   const [emailTemplates, setEmailTemplates] = useState({
@@ -5218,7 +5219,7 @@ export default function App() {
                     { label: "Healthcare", val: payTotals.HealthCanada?.rawSum || 0 },
                     { label: "Allowance", val: payTotals.AllowanceCanada?.rawSum || 0 },
                   ]},
-                { label: "Buenos Aires", emoji: "🇦🇷", usd: flujoBsAs, pct: pctBsAs, bg: "bg-sky-50", border: "border-sky-200", text: "text-sky-700", bar: "bg-sky-400",
+                { label: "Buenos Aires USD", emoji: "🇦🇷", usd: flujoBsAs, pct: pctBsAs, bg: "bg-sky-50", border: "border-sky-200", text: "text-sky-700", bar: "bg-sky-400",
                   detail: [
                     { label: "Cash 2", val: payTotals.Cash2?.rawSum || 0 },
                     { label: "Bonus", val: payTotals.Bonus?.rawSum || 0 },
@@ -5374,7 +5375,7 @@ export default function App() {
                         { label:"Healthcare", val:payTotals.HealthCanada?.rawSum||0 },
                         { label:"Allowance", val:payTotals.AllowanceCanada?.rawSum||0 },
                       ], total: flujoCanada },
-                      { label:"Buenos Aires", color:"#0369a1", detail:[
+                      { label:"Buenos Aires USD", color:"#0369a1", detail:[
                         { label:"Cash 2", val:payTotals.Cash2?.rawSum||0 },
                         { label:"Bonus", val:payTotals.Bonus?.rawSum||0 },
                         { label:"Allowance", val:payTotals.AllowanceBsAs?.rawSum||0 },
@@ -6046,7 +6047,7 @@ export default function App() {
                             { label:"Healthcare", val:payTotals.HealthCanada?.rawSum||0 },
                             { label:"Allowance", val:payTotals.AllowanceCanada?.rawSum||0 },
                           ], total: flujoCanada2 },
-                          { label:"Buenos Aires", color:"#0369a1", detail:[
+                          { label:"Buenos Aires USD", color:"#0369a1", detail:[
                             { label:"Cash 2", val:payTotals.Cash2?.rawSum||0 },
                             { label:"Bonus", val:payTotals.Bonus?.rawSum||0 },
                             { label:"Allowance", val:payTotals.AllowanceBsAs?.rawSum||0 },
@@ -6384,11 +6385,14 @@ export default function App() {
             return null;
           };
 
+          // Agrupa el bucket "fino" de bucketOf() en la misma categoria que muestran las cards (bsAsMono cae dentro de Buenos Aires)
+          const cardKeyOf = (b) => b === "bsAsMono" ? "bsAs" : b;
           const simAvailTeams = Array.from(new Set(activeWithSnap.filter(e => simAreaFilter === "All" || e.area === simAreaFilter).map(e => e.team).filter(Boolean))).sort();
           const simEmployees = activeWithSnap.filter(e => {
             if (simAreaFilter !== "All" && e.area !== simAreaFilter) return false;
             if (simTeamFilter !== "All" && e.team !== simTeamFilter) return false;
             if (simSearch && !e.name.toLowerCase().includes(simSearch.toLowerCase())) return false;
+            if (simOriginFilter && !(raiseAmountOf(e) !== 0 && cardKeyOf(bucketOf(e, raiseTypeOf(e))) === simOriginFilter)) return false;
             return true;
           }).sort((a, b) => {
             if (simSortField === "total_desc") return usdTotal(applyRaise(b)) - usdTotal(applyRaise(a));
@@ -6428,10 +6432,10 @@ export default function App() {
           // Canada y Buenos Aires siempre al dolar Blue, ARS/Mono ya estan en pesos.
           const cryptoRate = useNominaCrypto ? dolarCrypto : dolar;
           const CARDS = [
-            { label: "Crypto (₿)",        before: cryptoBefore,  after: cryptoAfter,  equivBefore: cryptoBefore * cryptoRate, equivAfter: cryptoAfter * cryptoRate, bg: "bg-purple-50",  border: "border-purple-200",  text: "text-purple-700" },
-            { label: "Canada (🍁)",       before: canadaBefore,  after: canadaAfter,  equivBefore: canadaBefore * dolar,      equivAfter: canadaAfter * dolar,      bg: "bg-red-50",     border: "border-red-200",     text: "text-red-700" },
-            { label: "Buenos Aires (🇦🇷)", before: bsAsBefore,    after: bsAsAfter,    equivBefore: bsAsBefore * dolar,        equivAfter: bsAsAfter * dolar,        bg: "bg-sky-50",     border: "border-sky-200",     text: "text-sky-700" },
-            { label: "Pesos ARS (dependencia)", before: arsUSDBefore, after: arsUSDAfter, equivBefore: arsBefore, equivAfter: arsAfter, bg: "bg-emerald-50", border: "border-emerald-200", text: "text-emerald-700" },
+            { key: "crypto", label: "Crypto (₿)",        before: cryptoBefore,  after: cryptoAfter,  equivBefore: cryptoBefore * cryptoRate, equivAfter: cryptoAfter * cryptoRate, bg: "bg-purple-50",  border: "border-purple-200",  text: "text-purple-700" },
+            { key: "canada", label: "Canada (🍁)",       before: canadaBefore,  after: canadaAfter,  equivBefore: canadaBefore * dolar,      equivAfter: canadaAfter * dolar,      bg: "bg-red-50",     border: "border-red-200",     text: "text-red-700" },
+            { key: "bsAs",   label: "Buenos Aires (USD)", before: bsAsBefore,    after: bsAsAfter,    equivBefore: bsAsBefore * dolar,        equivAfter: bsAsAfter * dolar,        bg: "bg-sky-50",     border: "border-sky-200",     text: "text-sky-700" },
+            { key: "ars",    label: "Pesos ARS (dependencia)", before: arsUSDBefore, after: arsUSDAfter, equivBefore: arsBefore, equivAfter: arsAfter, bg: "bg-emerald-50", border: "border-emerald-200", text: "text-emerald-700" },
           ];
           const totalDiffUSD = CARDS.reduce((s, c) => s + (c.after - c.before), 0);
           const totalDiffARS = CARDS.reduce((s, c) => s + (c.equivAfter - c.equivBefore), 0);
@@ -6443,7 +6447,7 @@ export default function App() {
                 <h2 className="text-lg font-black text-gray-900">Simulador de Aumentos</h2>
                 <p className="text-xs text-gray-400">Cargá un monto de aumento por persona y mirá cómo quedan los totales — {MONTHS[month]} {year}</p>
               </div>
-              <button onClick={() => setSimRaises({})}
+              <button onClick={() => { setSimRaises({}); setSimOriginFilter(null); }}
                 className="text-xs font-bold text-gray-500 hover:text-gray-800 px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50">
                 Limpiar aumentos
               </button>
@@ -6452,8 +6456,12 @@ export default function App() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               {CARDS.map(c => {
                 const changed = c.after !== c.before;
+                const active = simOriginFilter === c.key;
                 return (
-                  <div key={c.label} className={"rounded-xl px-4 py-3 border " + c.bg + " " + c.border}>
+                  <button key={c.key} onClick={() => setSimOriginFilter(p => p === c.key ? null : c.key)}
+                    disabled={!changed}
+                    title={changed ? "Ver quién compone este aumento" : undefined}
+                    className={"text-left rounded-xl px-4 py-3 border transition-shadow " + c.bg + " " + c.border + (changed ? " cursor-pointer hover:shadow-md" : " cursor-default opacity-90") + (active ? " ring-2 ring-offset-1 ring-gray-500" : "")}>
                     <div className={"text-xs font-bold mb-1 " + c.text}>{c.label}</div>
                     <div className="flex items-baseline gap-2 flex-wrap">
                       <span className="text-lg font-black text-gray-900">{fmtUSD(c.after)}</span>
@@ -6461,7 +6469,7 @@ export default function App() {
                     </div>
                     <div className="text-xs text-gray-400 mt-0.5">≈ {fARS(c.equivAfter)}</div>
                     {changed && <div className={"text-xs font-semibold mt-0.5 " + c.text}>+{fmtUSD(c.after - c.before)}</div>}
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -6493,6 +6501,12 @@ export default function App() {
                 <span className="flex items-center gap-1.5 text-xs font-bold text-amber-700 bg-amber-100 border border-amber-300 rounded-full px-3 py-1">
                   🧪 Simulación activa — {empsWithRaise} persona{empsWithRaise === 1 ? "" : "s"} con aumento cargado
                 </span>
+              )}
+              {simOriginFilter && (
+                <button onClick={() => setSimOriginFilter(null)}
+                  className="flex items-center gap-1.5 text-xs font-bold text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-full px-3 py-1">
+                  Filtrando por {CARDS.find(c => c.key === simOriginFilter)?.label} ✕
+                </button>
               )}
             </div>
 
