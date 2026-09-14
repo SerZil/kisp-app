@@ -6584,7 +6584,7 @@ export default function App() {
                     const arsAfterRow = arsNomina(applyRaise(e));
                     const hasRaise = raiseAmountOf(e) !== 0;
                     return (
-                      <tr key={e.id} className={"border-b " + (hasRaise ? "bg-amber-100 hover:bg-amber-200 border-amber-200" : "hover:bg-gray-50 border-gray-50")}>
+                      <tr key={e.id} className={"border-b " + (hasRaise ? "bg-amber-50 hover:bg-amber-100 border-amber-100" : "hover:bg-gray-50 border-gray-50")}>
                         <td className="px-4 py-2">
                           <div className="flex items-center gap-2">
                             <div className={"w-6 h-6 " + avatarColor(e.id) + " rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"}>{initials(e.name)}</div>
