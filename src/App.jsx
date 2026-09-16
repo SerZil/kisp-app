@@ -3380,7 +3380,7 @@ function PrintPreview({ emp, dolarMap, dolarCryptoMap, ipcMap, ranks, chartData,
                 { label: "Variacion salarial", val: varTotal != null ? (varTotal > 0 ? "+" : "") + varTotal.toFixed(1) + "%" : "—", sub: varLabel, color: varTotal != null ? (varTotal > 0 ? "#15803d" : "#b91c1c") : undefined },
                 ...(ipcAcum != null ? [
                   { label: "IPC acumulado", val: "+" + ipcAcum.toFixed(1) + "%", sub: effectiveFrom + " → " + effectiveTo, color: "#c2410c" },
-                  { label: "Variacion real", val: varTotal != null ? ((varTotal - ipcAcum) >= 0 ? "+" : "") + (varTotal - ipcAcum).toFixed(1) + "%" : "—", sub: "salario vs inflacion", color: varTotal != null ? ((varTotal - ipcAcum) >= 0 ? "#15803d" : "#b91c1c") : undefined },
+                  { label: "Variacion real", val: varTotal != null ? (((1 + varTotal / 100) / (1 + ipcAcum / 100) - 1) * 100 >= 0 ? "+" : "") + (((1 + varTotal / 100) / (1 + ipcAcum / 100) - 1) * 100).toFixed(1) + "%" : "—", sub: "salario vs inflacion", color: varTotal != null ? (((1 + varTotal / 100) / (1 + ipcAcum / 100) - 1) >= 0 ? "#15803d" : "#b91c1c") : undefined },
                 ] : []),
               ].map(s => (
                 <div key={s.label} style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: "6px", padding: "10px 12px" }}>
@@ -3879,6 +3879,7 @@ function EmployeeProfile({ emp, dolarMap, dolarCryptoMap, ipcMap, ranks, onClose
                     }
                     ipcAcum = (factor - 1) * 100;
                   }
+                  const realPct = ipcAcum != null ? ((1 + pct / 100) / (1 + ipcAcum / 100) - 1) * 100 : null;
                   return (
                     <div className="flex flex-wrap gap-2 items-center">
                       <span className={"px-2.5 py-1 rounded-full text-xs font-bold " + color}>
@@ -3889,9 +3890,9 @@ function EmployeeProfile({ emp, dolarMap, dolarCryptoMap, ipcMap, ranks, onClose
                           IPC +{ipcAcum.toFixed(1)}%
                         </span>
                       )}
-                      {ipcAcum != null && (
-                        <span className={"px-2.5 py-1 rounded-full text-xs font-bold " + (pct - ipcAcum >= 0 ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700")}>
-                          Real {pct - ipcAcum >= 0 ? "+" : ""}{(pct - ipcAcum).toFixed(1)}%
+                      {realPct != null && (
+                        <span className={"px-2.5 py-1 rounded-full text-xs font-bold " + (realPct >= 0 ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700")}>
+                          Real {realPct >= 0 ? "+" : ""}{realPct.toFixed(1)}%
                         </span>
                       )}
                     </div>
