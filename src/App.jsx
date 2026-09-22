@@ -3629,6 +3629,7 @@ function EmployeeProfile({ emp, dolarMap, dolarCryptoMap, ipcMap, ranks, onClose
             <div className="text-xs text-gray-500">{emp.team}</div>
             <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
               {emp.area && <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-semibold">{emp.area}</span>}
+              {emp.remote && <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-semibold">🏠 Remoto{emp.location ? " · " + emp.location : ""}</span>}
               <span className={"px-2 py-0.5 rounded-full text-xs font-medium " + rankColor(current && current.rank, ranks)}>{current && current.rank}</span>
               <span className="text-xs text-gray-400">desde {fDate(emp.activeFrom)}</span>
               {current?.payments?.Crypto > 0 && (
@@ -4033,6 +4034,7 @@ export default function App() {
   const [cargoFilter, setCargoFilter] = useState("All");
   const [areaFilter, setAreaFilter] = useState("All");
   const [supervisorFilter, setSupervisorFilter] = useState("All");
+  const [modalidadFilter, setModalidadFilter] = useState("All");
   const [search, setSearch]       = useState("");
   const [showInactive, setShowInactive] = useState(false);
   const [showFuture, setShowFuture] = useState(false);
@@ -4547,9 +4549,11 @@ export default function App() {
     if (supervisorFilter !== "All" && e.supervisor !== supervisorFilter) return false;
     if (teamFilter !== "All" && e.team !== teamFilter) return false;
     if (cargoFilter !== "All" && e.rank !== cargoFilter) return false;
+    if (modalidadFilter === "Presencial" && e.remote) return false;
+    if (modalidadFilter === "Remoto" && !e.remote) return false;
     if (search && !e.name.toLowerCase().includes(search.toLowerCase()) && !(e.supervisor||"").toLowerCase().includes(search.toLowerCase())) return false;
     return true;
-  }), [activeWithSnap, payFilter, areaFilter, supervisorFilter, teamFilter, cargoFilter, search]);
+  }), [activeWithSnap, payFilter, areaFilter, supervisorFilter, teamFilter, cargoFilter, modalidadFilter, search]);
 
   const arsNomina = (pay) => useNominaCrypto ? toARSProfile(pay, dolar, dolarCrypto) : toARS(pay, dolar);
 
@@ -5497,6 +5501,12 @@ export default function App() {
                 <div className="min-w-28 flex-1">
                   <Select value={supervisorFilter === "All" ? "" : supervisorFilter} onChange={v => setSupervisorFilter(v || "All")} options={supervisorOptions} placeholder="All supervisores" />
                 </div>
+                <div className="min-w-28 flex-1">
+                  <Select value={modalidadFilter === "All" ? "" : modalidadFilter} onChange={v => setModalidadFilter(v || "All")} options={["Presencial", "Remoto"]} placeholder="All modalidades" />
+                </div>
+                <span className="text-xs text-gray-500 font-medium shrink-0" title="Empleados activos este mes">
+                  🏢 {activeWithSnap.filter(e => !e.remote).length} presenciales · 🏠 {activeWithSnap.filter(e => e.remote).length} remotos
+                </span>
                 {payFilter && (
                   <div className={"flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold " + COLOR[PAYMENT_META[payFilter].color].bg + " " + COLOR[PAYMENT_META[payFilter].color].text}>
                     {PAYMENT_META[payFilter].icon} {PAYMENT_META[payFilter].label}
@@ -5507,7 +5517,7 @@ export default function App() {
             </div>
 
             {/* active filters banner */}
-            {(payFilter || areaFilter !== "All" || supervisorFilter !== "All" || teamFilter !== "All" || cargoFilter !== "All" || search) && (
+            {(payFilter || areaFilter !== "All" || supervisorFilter !== "All" || teamFilter !== "All" || cargoFilter !== "All" || modalidadFilter !== "All" || search) && (
               <div className="bg-blue-50 border border-blue-200 rounded-xl px-5 py-3 flex items-center justify-between">
                 <span className="text-sm font-semibold text-blue-700">{filtered.length} de {activeWithSnap.length} empleados en {MONTHS[month]} {year}</span>
                 <div>
@@ -5635,6 +5645,7 @@ export default function App() {
                                 className="font-medium text-gray-900 hover:text-blue-600 hover:underline text-left tracking-wide">
                                 {emp.name}
                               </button>
+                              {emp.remote && <span className="ml-1.5 text-sm" title={"Remoto" + (emp.location ? " · " + emp.location : "")}>🏠</span>}
                               <div className="flex items-center gap-1.5 mt-0.5">
                                 <span className="text-xs text-gray-400">desde {fDate(emp.activeFrom)}</span>
                                 {emp.area && <span className="text-xs bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded-full font-medium">{emp.area}</span>}
@@ -7316,6 +7327,21 @@ function EmployeeModal({ data, mode, teams, ranks, areas, dataByArea, supervisor
             <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Email personal</label>
             <input className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-300"
               value={f.personalEmail || ""} onChange={e => setF(p => ({ ...p, personalEmail: e.target.value }))} placeholder="Ej: juan@gmail.com" />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Modalidad</label>
+            <div className="flex gap-2">
+              <div className="flex rounded-lg border border-gray-200 overflow-hidden text-sm font-semibold shrink-0">
+                <button type="button" onClick={() => setF(p => ({ ...p, remote: false }))}
+                  className={"px-3 py-2 transition-colors " + (!f.remote ? "bg-gray-900 text-white" : "bg-white text-gray-500 hover:bg-gray-50")}>🏢 Presencial BA</button>
+                <button type="button" onClick={() => setF(p => ({ ...p, remote: true }))}
+                  className={"px-3 py-2 transition-colors " + (f.remote ? "bg-amber-500 text-white" : "bg-white text-gray-500 hover:bg-gray-50")}>🏠 Remoto</button>
+              </div>
+              {f.remote && (
+                <input className="flex-1 min-w-0 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-300"
+                  value={f.location || ""} onChange={e => setF(p => ({ ...p, location: e.target.value }))} placeholder="Ubicación (opcional)" />
+              )}
+            </div>
           </div>
           <div>
             <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Área</label>
