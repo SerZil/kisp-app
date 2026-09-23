@@ -4161,6 +4161,8 @@ export default function App() {
   const [editDolarCrypto, setEditDolarCrypto] = useState(false);
   const [useNominaCrypto, setUseNominaCrypto] = useState(() => localStorage.getItem("kisp-use-crypto") === null ? true : localStorage.getItem("kisp-use-crypto") === "true");
   useEffect(() => { localStorage.setItem("kisp-use-crypto", useNominaCrypto); }, [useNominaCrypto]);
+  // Al entrar a Nómina, siempre abrir con el orden original (sin ordenar)
+  useEffect(() => { if (view === "nomina") setSortField(null); }, [view]);
   useEffect(() => { localStorage.setItem("kisp-data-by-area", JSON.stringify(dataByArea)); }, [dataByArea]);
   const [modal, setModal]         = useState(null);
   const [profileEmp, setProfileEmp] = useState(null);
