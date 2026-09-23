@@ -5535,7 +5535,11 @@ export default function App() {
                     </th>
                     <th className="text-left px-4 py-3 text-gray-400 font-medium text-xs uppercase">Team / Cargo</th>
                     <th className="text-left px-4 py-3 text-gray-400 font-medium text-xs uppercase">Pagos</th>
-                    <th className="text-right px-4 py-3 text-gray-400 font-medium text-xs uppercase">Montos</th>
+                    <th className="text-right px-4 py-3 text-xs uppercase">
+                      <button onClick={() => setSortField(s => s === "total_desc" ? "total_asc" : "total_desc")} title="Ordenar por monto total" className={"font-medium hover:text-gray-700 uppercase " + (sortField?.startsWith("total") ? "text-gray-700" : "text-gray-400")}>
+                        Montos {sortField === "total_desc" ? "↓" : sortField === "total_asc" ? "↑" : ""}
+                      </button>
+                    </th>
                     <th className="text-right px-4 py-3 text-xs uppercase">
                       <button onClick={() => setSortField(s => s === "total_desc" ? "total_asc" : "total_desc")} className={"font-medium hover:text-gray-700 " + (sortField?.startsWith("total") ? "text-gray-700" : "text-gray-400")}>
                         Total ARS {sortField === "total_desc" ? "↓" : sortField === "total_asc" ? "↑" : ""}
