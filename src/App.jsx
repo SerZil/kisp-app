@@ -3252,6 +3252,22 @@ function Toast({ msg, type }) {
   );
 }
 
+// IPC acumulado entre dos meses "YYYY-MM": inflación de los meses POSTERIORES a fromKey
+// hasta toKey inclusive (= índice(toKey) / índice(fromKey) − 1). El mes de inicio no se
+// cuenta porque el sueldo de ese mes ya está a precios de ese mes.
+function ipcAcumulado(ipcMap, fromKey, toKey) {
+  if (!ipcMap || Object.keys(ipcMap).length === 0 || !fromKey || !toKey) return null;
+  let factor = 1;
+  let k = fromKey;
+  while (true) {
+    const [y, m] = k.split('-').map(Number);
+    k = m === 12 ? (y+1) + '-01' : y + '-' + String(m+1).padStart(2,'0');
+    if (k > toKey) break;
+    if (ipcMap[k] != null) factor *= (1 + ipcMap[k] / 100);
+  }
+  return (factor - 1) * 100;
+}
+
 // ── PRINT PREVIEW ─────────────────────────────────────────────────────────────
 function PrintPreview({ emp, dolarMap, dolarCryptoMap, ipcMap, ranks, chartData, year, month, rangeFrom, rangeTo, useCrypto, onClose }) {
   const printRef = useRef();
@@ -3298,17 +3314,7 @@ function PrintPreview({ emp, dolarMap, dolarCryptoMap, ipcMap, ranks, chartData,
   }
 
   // IPC acumulado del rango
-  let ipcAcum = null;
-  if (ipcMap && Object.keys(ipcMap).length > 0 && effectiveFrom && effectiveTo) {
-    let factor = 1;
-    let k = effectiveFrom;
-    while (k <= effectiveTo) {
-      if (ipcMap[k] != null) factor *= (1 + ipcMap[k] / 100);
-      const [y, m] = k.split('-').map(Number);
-      k = m === 12 ? (y+1) + '-01' : y + '-' + String(m+1).padStart(2,'0');
-    }
-    ipcAcum = (factor - 1) * 100;
-  }
+  const ipcAcum = ipcAcumulado(ipcMap, effectiveFrom, effectiveTo);
 
   function handlePrint() {
     if (!printRef.current) return;
@@ -3869,17 +3875,7 @@ function EmployeeProfile({ emp, dolarMap, dolarCryptoMap, ipcMap, ranks, onClose
                   const pct = ((totalLast - totalFirst) / totalFirst) * 100;
                   const color = pct >= 0 ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700";
                   // IPC acumulado del rango
-                  let ipcAcum = null;
-                  if (ipcMap && Object.keys(ipcMap).length > 0) {
-                    let factor = 1;
-                    let k = fromKey;
-                    while (k <= toKey) {
-                      if (ipcMap[k] != null) factor *= (1 + ipcMap[k] / 100);
-                      const [y, m] = k.split('-').map(Number);
-                      k = m === 12 ? (y+1) + '-01' : y + '-' + String(m+1).padStart(2,'0');
-                    }
-                    ipcAcum = (factor - 1) * 100;
-                  }
+                  const ipcAcum = ipcAcumulado(ipcMap, fromKey, toKey);
                   const realPct = ipcAcum != null ? ((1 + pct / 100) / (1 + ipcAcum / 100) - 1) * 100 : null;
                   return (
                     <div className="flex flex-wrap gap-2 items-center">
