@@ -4555,14 +4555,26 @@ export default function App() {
 
   const sortedFiltered = useMemo(() => {
     if (!sortField) return filtered;
+    // Nivel del cargo dentro de su área (listas de Config ordenadas de junior a senior)
+    const rankLevel = (emp) => {
+      const list = dataByArea[emp.area]?.cargos || ranks;
+      const i = list.indexOf(emp.rank);
+      return i === -1 ? -1 : i;
+    };
     return [...filtered].sort((a, b) => {
+      if (sortField === "rank_desc" || sortField === "rank_asc") {
+        const byArea = (a.area || "").localeCompare(b.area || "");
+        if (byArea) return byArea;
+        const diff = sortField === "rank_desc" ? rankLevel(b) - rankLevel(a) : rankLevel(a) - rankLevel(b);
+        return diff || a.name.localeCompare(b.name);
+      }
       if (sortField === "total_asc")  return arsNomina(a.payments) - arsNomina(b.payments);
       if (sortField === "total_desc") return arsNomina(b.payments) - arsNomina(a.payments);
       if (sortField === "name_asc")   return a.name.localeCompare(b.name);
       if (sortField === "name_desc")  return b.name.localeCompare(a.name);
       return 0;
     });
-  }, [filtered, sortField, dolar, dolarCrypto, useNominaCrypto]);
+  }, [filtered, sortField, dolar, dolarCrypto, useNominaCrypto, dataByArea, ranks]);
 
   const totalNomina   = useMemo(() => activeWithSnap.reduce((s, e) => s + toARS(e.payments, dolar), 0), [activeWithSnap, dolar]);
   const totalCosto    = useMemo(() => activeWithSnap.reduce((s, e) => {
@@ -5533,7 +5545,11 @@ export default function App() {
                         Empleado {sortField === "name_asc" ? "↑" : sortField === "name_desc" ? "↓" : ""}
                       </button>
                     </th>
-                    <th className="text-left px-4 py-3 text-gray-400 font-medium text-xs uppercase">Team / Cargo</th>
+                    <th className="text-left px-4 py-3 text-xs uppercase">
+                      <button onClick={() => setSortField(s => s === "rank_desc" ? "rank_asc" : "rank_desc")} title="Ordenar por ranking de cargo (dentro de cada área)" className={"font-medium hover:text-gray-700 uppercase " + (sortField?.startsWith("rank") ? "text-gray-700" : "text-gray-400")}>
+                        Team / Cargo {sortField === "rank_desc" ? "↓" : sortField === "rank_asc" ? "↑" : ""}
+                      </button>
+                    </th>
                     <th className="text-left px-4 py-3 text-gray-400 font-medium text-xs uppercase">Pagos</th>
                     <th className="text-right px-4 py-3 text-gray-400 font-medium text-xs uppercase">Montos</th>
                     <th className="text-right px-4 py-3 text-xs uppercase">
