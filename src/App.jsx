@@ -7453,7 +7453,8 @@ function EmployeeModal({ data, mode, teams, ranks, areas, dataByArea, supervisor
                   onChange={e => {
                     const m = e.target.value;
                     const existing = (data.bonusHistory || []).find(b => b.month === m);
-                    setF(p => ({ ...p, bonusMonth: m, bonusAmount: existing ? existing.amount : 0 }));
+                    // Si ese mes ya tiene bono, cargarlo; si no, conservar el monto ya tipeado
+                    setF(p => ({ ...p, bonusMonth: m, bonusAmount: existing ? existing.amount : p.bonusAmount }));
                   }} />
               </div>
               <div className="flex items-center gap-3">
@@ -7461,7 +7462,7 @@ function EmployeeModal({ data, mode, teams, ranks, areas, dataByArea, supervisor
                 <input type="number" placeholder="0"
                   className="w-28 border border-teal-200 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none"
                   value={f.bonusAmount || ""}
-                  onChange={e => { const v = Number(e.target.value) || 0; setF(p => ({ ...p, bonusAmount: v })); }} />
+                  onChange={e => { const v = Number(e.target.value) || 0; setF(p => ({ ...p, bonusAmount: v, bonusMonth: p.bonusMonth || (v > 0 ? currentKey : "") })); }} />
                 <span className="text-xs text-teal-500">USD</span>
               </div>
               {(f.bonusAmount > 0 && !f.bonusMonth) && (
