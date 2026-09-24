@@ -6547,8 +6547,13 @@ export default function App() {
             )}
 
             <div className="flex items-center gap-2 flex-wrap">
-              <input value={simSearch} onChange={e => setSimSearch(e.target.value)} placeholder="Buscar..."
-                className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-gray-400 w-48" />
+              <div className="relative w-48">
+                <input value={simSearch} onChange={e => setSimSearch(e.target.value)} placeholder="Buscar..."
+                  className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-gray-400 pr-6" />
+                {simSearch && (
+                  <button onClick={() => setSimSearch("")} title="Borrar búsqueda" className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-lg leading-none">×</button>
+                )}
+              </div>
               <select value={simAreaFilter} onChange={e => { setSimAreaFilter(e.target.value); setSimTeamFilter("All"); }}
                 className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none">
                 <option value="All">Todas las áreas</option>
