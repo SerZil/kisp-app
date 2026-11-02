@@ -3507,7 +3507,7 @@ function toARSProfile(pay, dBlue, dCrypto) {
   return t;
 }
 
-function EmployeeProfile({ emp, dolarMap, dolarCryptoMap, ipcMap, ranks, onClose, onSaveHistory, onSaveNotes, onPrint }) {
+function EmployeeProfile({ emp, dolarMap, dolarCryptoMap, ipcMap, ranks, onClose, onSaveHistory, onDeleteBonus, onSaveNotes, onPrint }) {
   const [addingNote, setAddingNote] = useState(false);
   const [useCrypto, setUseCrypto] = useState(() => {
     const cur = [...emp.history].sort((a,b) => a.from.localeCompare(b.from)).slice(-1)[0];
@@ -3951,9 +3951,14 @@ function EmployeeProfile({ emp, dolarMap, dolarCryptoMap, ipcMap, ranks, onClose
                         <span className="text-sm">🎁</span>
                       </div>
                       <div className="flex-1 rounded-2xl border p-4 bg-teal-50 border-teal-200">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-bold text-gray-800 text-sm px-1">{MONTHS[parseInt(b.month.slice(5, 7), 10) - 1]} {b.month.slice(0, 4)}</span>
-                          <span className="bg-teal-100 text-teal-700 text-xs px-2 py-0.5 rounded-full font-bold">Bono puntual</span>
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-bold text-gray-800 text-sm px-1">{MONTHS[parseInt(b.month.slice(5, 7), 10) - 1]} {b.month.slice(0, 4)}</span>
+                            <span className="bg-teal-100 text-teal-700 text-xs px-2 py-0.5 rounded-full font-bold">Bono puntual</span>
+                          </div>
+                          <button onClick={() => { if (window.confirm("¿Borrar el bono de " + MONTHS[parseInt(b.month.slice(5, 7), 10) - 1] + " " + b.month.slice(0, 4) + " (U$ " + b.amount.toLocaleString("es-AR") + ")?")) onDeleteBonus(emp.id, b.month); }} className="p-1 rounded hover:bg-red-50 text-red-400 text-xs border border-red-200 shrink-0">
+                            × Borrar
+                          </button>
                         </div>
                         <div className="text-xs text-teal-700 mt-1">
                           Este mes recibió un bono de <span className="font-bold">U$ {b.amount.toLocaleString("es-AR")}</span> (solo este mes)
@@ -4518,6 +4523,11 @@ export default function App() {
   function saveHistory(empId, newHistory) {
     setEmployees(p => p.map(e => e.id === empId ? { ...e, history: newHistory } : e));
     showToast("Historial actualizado");
+  }
+
+  function deleteBonus(empId, bonusMonth) {
+    setEmployees(p => p.map(e => e.id === empId ? { ...e, bonusHistory: (e.bonusHistory || []).filter(b => b.month !== bonusMonth) } : e));
+    showToast("Bono borrado");
   }
 
   function saveNotes(empId, newNotes) {
@@ -6775,6 +6785,7 @@ export default function App() {
           ranks={ranks}
           onClose={() => setProfileEmp(null)}
           onSaveHistory={saveHistory}
+          onDeleteBonus={deleteBonus}
           onSaveNotes={saveNotes}
           onPrint={(emp, chartData, rangeFrom, rangeTo, useCrypto) => { setProfileEmp(null); setPrintData({ emp, chartData, year, month, rangeFrom, rangeTo, useCrypto }); }}
         />
