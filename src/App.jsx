@@ -3938,8 +3938,30 @@ function EmployeeProfile({ emp, dolarMap, dolarCryptoMap, ipcMap, ranks, onClose
                     else diffLines.push(`${lbl}: ${pfx}${oldVal} → ${pfx}${newVal}`);
                   });
                 }
+                // Bonos puntuales del periodo de este snapshot (solo informativos, no suman al historial de sueldo)
+                const nextKey = next ? next.from.slice(0, 7) : null;
+                const periodBonuses = (emp.bonusHistory || [])
+                  .filter(b => b.amount > 0 && (i === 0 || b.month >= dk) && (!nextKey || b.month < nextKey))
+                  .sort((a, b) => b.month.localeCompare(a.month));
                 return (
-                  <div key={i} className="relative flex gap-4 pb-5">
+                  <React.Fragment key={i}>
+                  {periodBonuses.map(b => (
+                    <div key={"bonus-" + b.month} className="relative flex gap-4 pb-5">
+                      <div className="relative z-10 w-10 h-10 rounded-full flex items-center justify-center shrink-0 border-2 bg-teal-50 border-teal-300">
+                        <span className="text-sm">🎁</span>
+                      </div>
+                      <div className="flex-1 rounded-2xl border p-4 bg-teal-50 border-teal-200">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-bold text-gray-800 text-sm px-1">{MONTHS[parseInt(b.month.slice(5, 7), 10) - 1]} {b.month.slice(0, 4)}</span>
+                          <span className="bg-teal-100 text-teal-700 text-xs px-2 py-0.5 rounded-full font-bold">Bono puntual</span>
+                        </div>
+                        <div className="text-xs text-teal-700 mt-1">
+                          Este mes recibió un bono de <span className="font-bold">U$ {b.amount.toLocaleString("es-AR")}</span> (solo este mes)
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  <div className="relative flex gap-4 pb-5">
                     <div className={"relative z-10 w-10 h-10 rounded-full flex items-center justify-center shrink-0 border-2 " + (isLast ? "bg-blue-600 border-blue-600" : "bg-white border-gray-300")}>
                       <span className={"text-xs font-black " + (isLast ? "text-white" : "text-gray-500")}>{i + 1}</span>
                     </div>
@@ -3993,6 +4015,7 @@ function EmployeeProfile({ emp, dolarMap, dolarCryptoMap, ipcMap, ranks, onClose
                       </div>
                     </div>
                   </div>
+                  </React.Fragment>
                 );
               })}
             </div>
