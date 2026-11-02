@@ -4725,7 +4725,8 @@ export default function App() {
       const newBonus = emp.bonusAmount || 0;
       const newBonusMonth = emp.bonusMonth || "";
       const oldEntry = (existing?.bonusHistory || []).find(b => b.month === newBonusMonth);
-      if (newBonus > 0 && newBonusMonth && (!oldEntry || oldEntry.amount !== newBonus)) {
+      // Si se toco el bono puntual en la ficha, el draft sale siempre (aunque el monto sea igual)
+      if (newBonus > 0 && newBonusMonth && (emp._bonusTouched || !oldEntry || oldEntry.amount !== newBonus)) {
         const bonusMonthYear = new Date(newBonusMonth + "-15").toLocaleDateString("en-US", { year:"numeric", month:"long" });
         openGmailDraft("bonusChange", { ...emp, _monthYear: bonusMonthYear });
       }
@@ -4834,7 +4835,7 @@ export default function App() {
         }
         // Always strip Bonus from ALL snapshots (bonus lives in bonusAmount/bonusMonth, not in history)
         newHistory = newHistory.map(s => { const { Bonus, ...rest } = s.payments || {}; return { ...s, payments: rest }; });
-        const { bonusAmount: _ba, bonusMonth: _bm, ...empClean } = emp;
+        const { bonusAmount: _ba, bonusMonth: _bm, _bonusTouched: _bt, ...empClean } = emp;
         return { ...empClean, bonusVersion: 5, history: newHistory };
       }));
     } else {
@@ -7454,7 +7455,7 @@ function EmployeeModal({ data, mode, teams, ranks, areas, dataByArea, supervisor
                     const m = e.target.value;
                     const existing = (data.bonusHistory || []).find(b => b.month === m);
                     // Si ese mes ya tiene bono, cargarlo; si no, conservar el monto ya tipeado
-                    setF(p => ({ ...p, bonusMonth: m, bonusAmount: existing ? existing.amount : p.bonusAmount }));
+                    setF(p => ({ ...p, bonusMonth: m, bonusAmount: existing ? existing.amount : p.bonusAmount, _bonusTouched: true }));
                   }} />
               </div>
               <div className="flex items-center gap-3">
@@ -7462,7 +7463,7 @@ function EmployeeModal({ data, mode, teams, ranks, areas, dataByArea, supervisor
                 <input type="number" placeholder="0"
                   className="w-28 border border-teal-200 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none"
                   value={f.bonusAmount || ""}
-                  onChange={e => { const v = Number(e.target.value) || 0; setF(p => ({ ...p, bonusAmount: v, bonusMonth: p.bonusMonth || (v > 0 ? currentKey : "") })); }} />
+                  onChange={e => { const v = Number(e.target.value) || 0; setF(p => ({ ...p, bonusAmount: v, bonusMonth: p.bonusMonth || (v > 0 ? currentKey : ""), _bonusTouched: true })); }} />
                 <span className="text-xs text-teal-500">USD</span>
               </div>
               {(f.bonusAmount > 0 && !f.bonusMonth) && (
