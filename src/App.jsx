@@ -7314,6 +7314,23 @@ function EmployeeModal({ data, mode, teams, ranks, areas, dataByArea, supervisor
   const [f, setF] = useState({ ...data, rank: _initRank, payments: _initPayments, bonusAmount: _initBonus.amount, bonusMonth: _initBonus.month });
   const [applyNextMonth, setApplyNextMonth] = useState(true);
   const [specificMonth, setSpecificMonth] = useState("");
+  // Datos obligatorios para dar de alta (los usan los drafts de onboarding)
+  function getMissingNewEmpFields(x) {
+    const blank = v => !String(v || "").trim();
+    const teamOpts = x.area && dataByArea[x.area] ? dataByArea[x.area].teams : teams;
+    const cargoOpts = x.area && dataByArea[x.area] ? dataByArea[x.area].cargos : ranks;
+    const missing = [];
+    if (blank(x.name)) missing.push("Nombre");
+    if (blank(x.dni)) missing.push("DNI");
+    if (blank(x.address)) missing.push("Dirección");
+    if (blank(x.personalEmail)) missing.push("Email personal");
+    if (blank(x.area)) missing.push("Área");
+    if (blank(x.team) && (teamOpts || []).length > 0) missing.push("Team");
+    if (blank(x.rank) && (cargoOpts || []).length > 0) missing.push("Cargo");
+    if (blank(x.activeFrom)) missing.push("Fecha de inicio");
+    if (!Object.entries(x.payments || {}).some(([k, v]) => k !== "Bonus" && Number(v) > 0)) missing.push("Sueldo / forma de pago");
+    return missing;
+  }
   const [selectedTrunk, setSelectedTrunk] = useState(
     TRUNKS.find(t => (_initPayments[t] || 0) > 0) || null
   );
@@ -7538,10 +7555,20 @@ function EmployeeModal({ data, mode, teams, ranks, areas, dataByArea, supervisor
         )}
         <div className="p-4 border-t border-gray-200 flex gap-3 justify-end shrink-0">
           <button onClick={onClose} className="px-4 py-2 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50">Cancelar</button>
-          {mode === "add" && !f.activeFrom && (
-            <span className="text-xs text-red-500 font-medium self-center">⚠️ Falta fecha de inicio</span>
-          )}
-          <button onClick={() => onSave(f, applyNextMonth, specificMonth)} disabled={!f.name.trim() || (mode === "add" && !f.activeFrom)}
+          {(() => {
+            if (mode !== "add") return null;
+            const missing = getMissingNewEmpFields(f);
+            return missing.length > 0 ? (
+              <span className="text-xs text-red-500 font-medium self-center">⚠️ Falta: {missing.join(", ")}</span>
+            ) : null;
+          })()}
+          <button onClick={() => {
+              if (mode === "add") {
+                const missing = getMissingNewEmpFields(f);
+                if (missing.length > 0) { alert("Completá estos datos antes de guardar (si no, el draft sale incompleto):\n\n- " + missing.join("\n- ")); return; }
+              }
+              onSave(f, applyNextMonth, specificMonth);
+            }} disabled={!f.name.trim() || (mode === "add" && getMissingNewEmpFields(f).length > 0)}
             className="px-4 py-2 rounded-lg bg-gray-900 text-white text-sm font-bold hover:bg-gray-700 disabled:opacity-40">
             {mode === "edit" ? "Guardar" : "Agregar"}
           </button>
