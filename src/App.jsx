@@ -7317,16 +7317,12 @@ function EmployeeModal({ data, mode, teams, ranks, areas, dataByArea, supervisor
   // Datos obligatorios para dar de alta (los usan los drafts de onboarding)
   function getMissingNewEmpFields(x) {
     const blank = v => !String(v || "").trim();
-    const teamOpts = x.area && dataByArea[x.area] ? dataByArea[x.area].teams : teams;
-    const cargoOpts = x.area && dataByArea[x.area] ? dataByArea[x.area].cargos : ranks;
     const missing = [];
     if (blank(x.name)) missing.push("Nombre");
     if (blank(x.dni)) missing.push("DNI");
     if (blank(x.address)) missing.push("Dirección");
     if (blank(x.personalEmail)) missing.push("Email personal");
     if (blank(x.area)) missing.push("Área");
-    if (blank(x.team) && (teamOpts || []).length > 0) missing.push("Team");
-    if (blank(x.rank) && (cargoOpts || []).length > 0) missing.push("Cargo");
     if (blank(x.activeFrom)) missing.push("Fecha de inicio");
     if (!Object.entries(x.payments || {}).some(([k, v]) => k !== "Bonus" && Number(v) > 0)) missing.push("Sueldo / forma de pago");
     return missing;
