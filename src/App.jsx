@@ -7404,11 +7404,10 @@ function EmployeeModal({ data, mode, teams, ranks, areas, dataByArea, supervisor
           </div>
           <div>
             <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Supervisor</label>
-            <input list="supervisors-list" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-300"
-              value={f.supervisor || ""} onChange={e => setF(p => ({ ...p, supervisor: e.target.value }))} placeholder="Buscar supervisor..." />
-            <datalist id="supervisors-list">
-              {(supervisors || []).map(s => <option key={s} value={s} />)}
-            </datalist>
+            <Select value={f.supervisor || ""}
+              onChange={v => setF(p => ({ ...p, supervisor: v === "All" ? "" : v }))}
+              options={(supervisors || []).filter(s => s !== f.name)}
+              placeholder="Sin supervisor" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
