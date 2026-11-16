@@ -3029,6 +3029,22 @@ function mkey(y, m) {
   return y + "-" + String(m + 1).padStart(2, "0");
 }
 
+// Badge de antigüedad (hoy vs fecha de inicio). Si todavía no empezó, muestra "Ingresa dd/mm".
+function TenureBadge({ activeFrom }) {
+  if (!activeFrom) return null;
+  const start = new Date(activeFrom + "T00:00:00");
+  const now = new Date();
+  if (start > now) {
+    return <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-medium">Ingresa {String(start.getDate()).padStart(2,"0")}/{String(start.getMonth()+1).padStart(2,"0")}</span>;
+  }
+  let months = (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth());
+  if (now.getDate() < start.getDate()) months--;
+  months = Math.max(0, months);
+  const y = Math.floor(months / 12), m = months % 12;
+  const label = (y > 0 ? y + "a" : "") + (m > 0 ? (y > 0 ? " " : "") + m + "m" : "") || "Nuevo";
+  return <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full font-medium">{label}</span>;
+}
+
 function isActiveInMonth(emp, y, m) {
   const first = mkey(y, m) + "-01";
   const last  = mkey(y, m) + "-31";
@@ -5685,12 +5701,7 @@ export default function App() {
                               <div className="flex items-center gap-1.5 mt-0.5">
                                 <span className="text-xs text-gray-400">desde {fDate(emp.activeFrom)}</span>
                                 {emp.area && <span className="text-xs bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded-full font-medium">{emp.area}</span>}
-                                {emp.activeFrom && (() => {
-                                  const years = (new Date() - new Date(emp.activeFrom)) / (1000*60*60*24*365.25);
-                                  const y = Math.floor(years);
-                                  const m = Math.floor((years - y) * 12);
-                                  return <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full font-medium">{y > 0 ? y + "a" : ""}{m > 0 ? " " + m + "m" : ""}</span>;
-                                })()}
+                                <TenureBadge activeFrom={emp.activeFrom} />
                               </div>
                             </div>
                           </div>
@@ -5871,12 +5882,7 @@ export default function App() {
                             </div>
                             <div className="flex items-center gap-1.5 mt-0.5">
                               <span className="text-xs text-gray-400">desde {fDate(emp.activeFrom)}</span>
-                              {emp.activeFrom && (() => {
-                                const years = (new Date() - new Date(emp.activeFrom)) / (1000*60*60*24*365.25);
-                                const y = Math.floor(years);
-                                const m = Math.floor((years - y) * 12);
-                                return <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full font-medium">{y > 0 ? y + "a" : ""}{m > 0 ? " " + m + "m" : ""}</span>;
-                              })()}
+                              <TenureBadge activeFrom={emp.activeFrom} />
                             </div>
                           </div>
                           <div className="flex items-center gap-3 shrink-0">
@@ -6655,12 +6661,7 @@ export default function App() {
                               </div>
                               <div className="flex items-center gap-1.5 mt-0.5">
                                 <span className="text-xs text-gray-400">desde {fDate(e.activeFrom)}</span>
-                                {e.activeFrom && (() => {
-                                  const years = (new Date() - new Date(e.activeFrom)) / (1000*60*60*24*365.25);
-                                  const y = Math.floor(years);
-                                  const m = Math.floor((years - y) * 12);
-                                  return <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full font-medium">{y > 0 ? y + "a" : ""}{m > 0 ? " " + m + "m" : ""}</span>;
-                                })()}
+                                <TenureBadge activeFrom={e.activeFrom} />
                               </div>
                             </div>
                           </div>
