@@ -4192,7 +4192,14 @@ export default function App() {
     }
   });
   const [cmpA, setCmpA] = useState(null);
-  const [syncState, setSyncState] = useState("idle"); // idle | pending | saving | saved | error
+  const [syncState, setSyncState] = useState("idle"); // idle | pending | saving | saved | error | conflict
+  // Hay una version mas nueva en el servidor (otro dispositivo/pestaña guardo) y esta pestaña
+  // tiene cambios sin subir: no se pisa nada hasta que el usuario elija.
+  const [staleConflict, setStaleConflict] = useState(null);
+  const serverBaseRef = useRef({ savedAt: 0, simRaisesSavedAt: 0 }); // version del servidor que esta pestaña ya vio
+  const skipSaveRef = useRef({ emp: false, sim: false });           // saltear el proximo guardado (datos recien traidos del servidor)
+  const migrateRef = useRef(l => l);
+  const conflictRef = useRef(false);
   const [draftNotification, setDraftNotification] = useState(null);
   const [pendingDrafts, setPendingDrafts] = useState([]);
   const [cmpB, setCmpB] = useState(null);
@@ -4278,7 +4285,8 @@ export default function App() {
           if (data.compra) {
             const now = new Date();
             const k = mkey(now.getFullYear(), now.getMonth());
-            setDolarMap(prev => ({ ...prev, [k]: data.compra }));
+            // Si el valor no cambio, no crear un objeto nuevo (dispararia un guardado al abrir la app)
+            setDolarMap(prev => prev[k] === data.compra ? prev : ({ ...prev, [k]: data.compra }));
           }
         }
       } catch (e) {
@@ -4345,6 +4353,7 @@ export default function App() {
       }
     }
 
+    migrateRef.current = migrateEmployees;
     function migrateEmployees(empList) {
       return empList.map(e => {
         const history = (e.history || []).map(s => {
@@ -4392,6 +4401,9 @@ export default function App() {
             // Usar la fuente más reciente (employees/dolarMap tienen su propio timestamp).
             // Si el servidor esta vacio y local tiene datos, NUNCA se pisa en silencio:
             // se mantiene lo local y se avisa con un cartel para que el usuario decida.
+            // Version del servidor sobre la que se basa esta pestaña: antes de cada guardado
+            // se compara contra el servidor para no pisar cambios hechos desde otro dispositivo.
+            serverBaseRef.current = { savedAt: sheetsSavedAt, simRaisesSavedAt: data.simRaisesSavedAt || 0 };
             if (sheetsEmployeesLookSuspicious || (localEmployees && localSavedAt > sheetsSavedAt)) {
               setEmployees(migrateEmployees(localEmployees));
               if (localDolar) setDolarMap(localDolar);
@@ -4399,6 +4411,14 @@ export default function App() {
             } else {
               setEmployees(migrateEmployees(data.employees));
               if (data.dolarMap) setDolarMap(data.dolarMap);
+              // Abrir la app no es un cambio: no volver a guardar lo que vino del servidor
+              // (antes se re-subia con la hora actual y una copia vieja pasaba a ser "la mas nueva").
+              skipSaveRef.current.emp = true;
+              try {
+                localStorage.setItem("kisp-employees", JSON.stringify(data.employees));
+                if (data.dolarMap) localStorage.setItem("kisp-dolar", JSON.stringify(data.dolarMap));
+                localStorage.setItem("kisp-savedAt", String(sheetsSavedAt));
+              } catch (e) { /* ignorar */ }
             }
             // simRaises usa un timestamp PROPIO, independiente del de employees/dolarMap,
             // para no perder simulaciones locales por un cambio de dolar ajeno. Ademas,
@@ -4413,6 +4433,11 @@ export default function App() {
               if (sheetsSimRaisesLookSuspicious) setRaiseConflict({ count: localSimRaisesCount });
             } else {
               setSimRaises(data.simRaises || {});
+              skipSaveRef.current.sim = true;
+              try {
+                localStorage.setItem("kisp-sim-raises", JSON.stringify(data.simRaises || {}));
+                localStorage.setItem("kisp-sim-raises-savedAt", String(sheetsSimRaisesSavedAt));
+              } catch (e) { /* ignorar */ }
             }
             setStorageReady(true);
             fetchDolarBlue();
@@ -4442,32 +4467,117 @@ export default function App() {
   // ── STORAGE: save on change ──
   const SHEETS_URL = "https://script.google.com/macros/s/AKfycbwPX2og-NirPVsPNMLasWg3RPkyvGfJwUGcbOd9uPRK3QrrGuy7GgG90puNgDflCB4v/exec";
 
-  // Mecanismo de guardado a Sheets a prueba de cierres de pestaña / cortes de conexion:
+  // Mecanismo de guardado a Sheets a prueba de cierres de pestaña / cortes de conexion
+  // y de pisadas entre dispositivos:
   // - lastPayloadRef siempre tiene el ultimo estado a enviar; dirtyRef indica si ese
   //   estado ya se confirmo enviado o sigue pendiente.
   // - El debounce es corto (1.2s) en vez de 3s, para minimizar la ventana de riesgo.
+  // - El backend sobreescribe el archivo ENTERO, asi que antes de subir se consulta el
+  //   servidor: si otro dispositivo/pestaña guardo algo mas nuevo que lo que esta pestaña
+  //   vio, NO se sube nada y se pregunta (banner de conflicto).
+  // - Despues de subir se vuelve a leer el servidor para confirmar que el guardado quedo
+  //   (el POST es no-cors: sin esta verificacion un error de Google pasaba como "guardado").
   // - beforeunload/pagehide/visibilitychange fuerzan un envio inmediato via sendBeacon
   //   (que el navegador entrega igual aunque la pestaña se este cerrando).
   // - Si falla (sin conexion), reintenta solo hasta confirmar el envio o volver a estar online.
+  // - Al volver a la pestaña (o cada 2 min si esta visible) se traen los cambios de otros
+  //   dispositivos, para no quedarse editando sobre datos viejos.
   const lastPayloadRef = useRef(null);
   const dirtyRef = useRef(false);
   const syncTimerRef = useRef(null);
+  const inFlightRef = useRef(false);
+  const rerunRef = useRef(false);
 
-  function doSync(useBeacon = false) {
+  async function fetchServer() {
+    const res = await fetch(SHEETS_URL, { method: "GET", mode: "cors", cache: "no-store" });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const data = await res.json();
+    if (!data || !Array.isArray(data.employees)) throw new Error("Respuesta invalida del servidor");
+    return data;
+  }
+
+  function serverIsNewer(server) {
+    const base = serverBaseRef.current;
+    return (server.savedAt || 0) > (base.savedAt || 0) || (server.simRaisesSavedAt || 0) > (base.simRaisesSavedAt || 0);
+  }
+
+  // Reemplaza el estado de esta pestaña por lo que hay en el servidor, sin volver a subirlo.
+  function applyServerData(data) {
+    const emps = migrateRef.current(data.employees);
+    skipSaveRef.current = { emp: true, sim: true };
+    setEmployees(emps);
+    if (data.dolarMap) setDolarMap(data.dolarMap);
+    setSimRaises({ ...(data.simRaises || {}) });
+    try {
+      localStorage.setItem("kisp-employees", JSON.stringify(emps));
+      if (data.dolarMap) localStorage.setItem("kisp-dolar", JSON.stringify(data.dolarMap));
+      localStorage.setItem("kisp-savedAt", String(data.savedAt || 0));
+      localStorage.setItem("kisp-sim-raises", JSON.stringify(data.simRaises || {}));
+      localStorage.setItem("kisp-sim-raises-savedAt", String(data.simRaisesSavedAt || 0));
+    } catch (e) { console.error("Storage save error:", e); }
+    serverBaseRef.current = { savedAt: data.savedAt || 0, simRaisesSavedAt: data.simRaisesSavedAt || 0 };
+    if (syncTimerRef.current) { clearTimeout(syncTimerRef.current); syncTimerRef.current = null; }
+    lastPayloadRef.current = null;
+    dirtyRef.current = false;
+    conflictRef.current = false;
+    setStaleConflict(null);
+    setSyncState("saved");
+  }
+
+  function raiseStaleConflict(server) {
+    conflictRef.current = true;
+    if (syncTimerRef.current) { clearTimeout(syncTimerRef.current); syncTimerRef.current = null; }
+    setStaleConflict({ server });
+    setSyncState("conflict");
+  }
+
+  async function doSync(useBeacon = false, force = false) {
     const payload = lastPayloadRef.current;
     if (!payload) return;
     if (syncTimerRef.current) { clearTimeout(syncTimerRef.current); syncTimerRef.current = null; }
-    const body = JSON.stringify(payload);
-    if (useBeacon && navigator.sendBeacon) {
-      const ok = navigator.sendBeacon(SHEETS_URL, new Blob([body], { type: "text/plain" }));
-      if (ok) { dirtyRef.current = false; setSyncState("saved"); }
-      else { setSyncState("error"); scheduleRetry(); }
+    if (useBeacon) {
+      // La pestaña se esta cerrando: no hay tiempo de consultar el servidor. Si hay un
+      // conflicto sin resolver, no se manda nada (pisaria lo del otro dispositivo).
+      if (conflictRef.current || !navigator.sendBeacon) return;
+      const ok = navigator.sendBeacon(SHEETS_URL, new Blob([JSON.stringify(payload)], { type: "text/plain" }));
+      if (ok) {
+        dirtyRef.current = false;
+        serverBaseRef.current = { savedAt: payload.savedAt || 0, simRaisesSavedAt: payload.simRaisesSavedAt || 0 };
+        setSyncState("saved");
+      } else { setSyncState("error"); scheduleRetry(); }
       return;
     }
+    if (conflictRef.current && !force) return;
+    if (inFlightRef.current) { rerunRef.current = true; return; }
+    inFlightRef.current = true;
     setSyncState("saving");
-    fetch(SHEETS_URL, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain" }, body })
-      .then(() => { dirtyRef.current = false; setSyncState("saved"); })
-      .catch(() => { setSyncState("error"); scheduleRetry(); });
+    let stop = false;
+    try {
+      if (!force) {
+        const server = await fetchServer();
+        if (serverIsNewer(server)) { raiseStaleConflict(server); stop = true; return; }
+      }
+      const sent = lastPayloadRef.current;
+      await fetch(SHEETS_URL, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain" }, body: JSON.stringify(sent) });
+      const check = await fetchServer();
+      if ((check.savedAt || 0) === (sent.savedAt || 0) && (check.simRaisesSavedAt || 0) === (sent.simRaisesSavedAt || 0)) {
+        serverBaseRef.current = { savedAt: sent.savedAt || 0, simRaisesSavedAt: sent.simRaisesSavedAt || 0 };
+        conflictRef.current = false;
+        if (lastPayloadRef.current === sent) { dirtyRef.current = false; setSyncState("saved"); }
+        else rerunRef.current = true; // hubo cambios mientras se subia: mandar lo ultimo
+      } else {
+        // El servidor no tiene lo que mandamos: o fallo el guardado, o alguien guardo justo despues.
+        // El reintento vuelve a comparar y, si fue otro dispositivo, muestra el conflicto.
+        setSyncState("error"); scheduleRetry();
+      }
+    } catch (e) {
+      console.error("Error guardando en Sheets:", e);
+      setSyncState("error"); scheduleRetry();
+    } finally {
+      inFlightRef.current = false;
+      if (stop) rerunRef.current = false;
+      else if (rerunRef.current) { rerunRef.current = false; doSync(false); }
+    }
   }
 
   function scheduleRetry() {
@@ -4478,31 +4588,54 @@ export default function App() {
   function scheduleSync(payload) {
     lastPayloadRef.current = payload;
     dirtyRef.current = true;
+    if (conflictRef.current) return; // hay un conflicto abierto: guardar solo local hasta que se resuelva
     setSyncState("pending");
     if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
     syncTimerRef.current = setTimeout(() => doSync(false), 1200);
   }
 
+  // Traer cambios hechos desde otro dispositivo/pestaña. Si esta pestaña tiene cambios
+  // sin subir, no se mezcla nada: se muestra el conflicto.
+  async function refreshFromServer() {
+    if (inFlightRef.current || conflictRef.current) return;
+    try {
+      const server = await fetchServer();
+      if (inFlightRef.current || conflictRef.current || !serverIsNewer(server)) return;
+      if (dirtyRef.current) { raiseStaleConflict(server); return; }
+      applyServerData(server);
+      showToast("🔄 Datos actualizados con cambios de otro dispositivo");
+    } catch (e) { /* sin conexion: se reintenta en la proxima vuelta */ }
+  }
+
   // Red de seguridad: si la pestaña se cierra/oculta o se pierde conexion con un guardado
   // pendiente, forzar el envio en vez de confiar en que el debounce llegue a disparar.
+  // Al volver a la pestaña, traer lo que se haya guardado desde otro lado.
+  const syncFnsRef = useRef({});
+  syncFnsRef.current = { doSync, refreshFromServer };
   useEffect(() => {
-    const flushPending = () => { if (dirtyRef.current) doSync(true); };
-    const onVisibility = () => { if (document.visibilityState === "hidden") flushPending(); };
-    const onOnline = () => { if (dirtyRef.current) doSync(false); };
+    const flushPending = () => { if (dirtyRef.current) syncFnsRef.current.doSync(true); };
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") flushPending();
+      else syncFnsRef.current.refreshFromServer();
+    };
+    const onOnline = () => { if (dirtyRef.current) syncFnsRef.current.doSync(false); else syncFnsRef.current.refreshFromServer(); };
     window.addEventListener("beforeunload", flushPending);
     window.addEventListener("pagehide", flushPending);
     document.addEventListener("visibilitychange", onVisibility);
     window.addEventListener("online", onOnline);
+    const poll = setInterval(() => { if (document.visibilityState === "visible") syncFnsRef.current.refreshFromServer(); }, 120000);
     return () => {
       window.removeEventListener("beforeunload", flushPending);
       window.removeEventListener("pagehide", flushPending);
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("online", onOnline);
+      clearInterval(poll);
     };
   }, []);
 
   useEffect(() => {
     if (!storageReady) return;
+    if (skipSaveRef.current.emp) { skipSaveRef.current.emp = false; return; }
     // Guardar en localStorage inmediatamente, con su propio timestamp
     const savedAt = Date.now();
     try {
@@ -4522,6 +4655,7 @@ export default function App() {
   // simulador) nunca puede hacer que se pierda una simulacion local mas nueva.
   useEffect(() => {
     if (!storageReady) return;
+    if (skipSaveRef.current.sim) { skipSaveRef.current.sim = false; return; }
     const simRaisesSavedAt = Date.now();
     try {
       localStorage.setItem("kisp-sim-raises", JSON.stringify(simRaises));
@@ -4974,6 +5108,32 @@ export default function App() {
           ))}
         </div>
       </div>
+
+      {/* CONFLICTO: otro dispositivo/pestaña guardo algo mas nuevo mientras aca habia cambios sin subir */}
+      {staleConflict && (
+        <div className="mx-3 mt-2 rounded-xl border border-red-300 bg-red-50 px-4 py-2.5">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <span className="text-sm text-red-800 font-medium">
+              ⚠️ Desde otro dispositivo o pestaña se guardaron cambios más nuevos
+              {staleConflict.server.savedAt ? " (" + new Date(staleConflict.server.savedAt).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) + ")" : ""}.
+              {" "}Tus últimos cambios de esta pestaña todavía no se subieron. ¿Qué hacemos?
+            </span>
+            <div className="flex gap-1.5 shrink-0">
+              <button onClick={() => { applyServerData(staleConflict.server); showToast("Datos del servidor cargados — rehacé tus últimos cambios", "warn"); }}
+                className="text-xs px-3 py-1.5 rounded-full font-bold text-white bg-emerald-600 hover:bg-emerald-700">
+                Traer lo del servidor (recomendado)
+              </button>
+              <button onClick={() => {
+                  if (!confirm("Esto sube TODA la información de esta pestaña y borra lo que se guardó desde el otro dispositivo. ¿Seguro?")) return;
+                  conflictRef.current = false; setStaleConflict(null); doSync(false, true);
+                }}
+                className="text-xs px-3 py-1.5 rounded-full font-bold text-white bg-red-600 hover:bg-red-700">
+                Pisar con lo mío
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* CONFLICTO SERVIDOR VACIO vs LOCAL — nunca se resuelve solo, se pregunta */}
       {(empConflict || raiseConflict) && (
